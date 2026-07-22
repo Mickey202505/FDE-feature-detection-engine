@@ -2,7 +2,7 @@
   "name": "feature-detection-engine",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@10",
+  "packageManager": "pnpm@11.15.1",
   "workspaces": [
     "packages/*"
   ]

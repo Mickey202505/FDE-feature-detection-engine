@@ -1,0 +1,1 @@
+{"version":"7.0.2","root":["./src/detectionrequest.ts","./src/detectionresult.ts","./src/geometry.ts","./src/imagesource.ts","./src/point.ts","./src/index.ts"],"packageJsons":["./package.json"]}

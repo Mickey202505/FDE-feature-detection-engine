@@ -3,26 +3,17 @@ import type {
   DetectionResult,
 } from "../../domain/src";
 
+import { DetectionPipeline } from "./pipeline/DetectionPipeline";
+
 /**
- * The main entry point for the Feature Detection Engine SDK.
+ * Main Feature Detection Engine.
  */
 export class FeatureDetectionEngine {
-  /**
-   * Creates a new Feature Detection Engine.
-   */
-  constructor() {}
+  private readonly pipeline = new DetectionPipeline();
 
-  /**
-   * Detects a feature within an image.
-   */
   async detect(
     request: DetectionRequest,
   ): Promise<DetectionResult> {
-    void request;
-
-    return {
-      geometry: [],
-      confidence: 0,
-    };
+    return this.pipeline.run(request);
   }
 }

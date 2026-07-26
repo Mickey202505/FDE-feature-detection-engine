@@ -1,6 +1,12 @@
-import type { GolfFeature } from "./GolfFeature";
+import type { CourseCoordinate } from "./CourseCoordinate";
+import type { GolfFeatureType } from "./GolfFeatureType";
+import type { ImageSource } from "./ImageSource";
 
-export interface DetectionResult {
-  features: GolfFeature[];
-  confidence: number;
+/**
+ * Represents a request to detect a single golf feature.
+ */
+export interface DetectionRequest {
+  readonly image: ImageSource;
+  readonly featureType: GolfFeatureType;
+  readonly location: CourseCoordinate;
 }

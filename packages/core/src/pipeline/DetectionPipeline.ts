@@ -14,7 +14,7 @@ export class DetectionPipeline {
     this.validator.validate(request);
 
     return {
-      features: [],
+      geometry: [],
       confidence: 0,
     };
   }

@@ -8,7 +8,7 @@ describe("DetectionPipeline", () => {
 
     const result = await pipeline.run({} as never);
 
-    expect(result.features).toEqual([]);
-    expect(result.confidence).toBe(0);
+  expect(result.geometry).toEqual([]);
+expect(result.confidence).toBe(0);
   });
 });

@@ -2,7 +2,7 @@
 
 ## Project Handbook & Development Handover
 
-**Version:** 1.0
+**Version:** 1.1
 **Status:** Ready for Implementation
 
 ---
@@ -71,11 +71,11 @@ Remaining detectors will be delivered in later releases.
 
 * Greens
 * Tee Boxes
-* Fairways
+* Bunkers 
 
 ## Release 2
 
-* Bunkers
+* Fairways
 * Water
 * Cart Paths
 
@@ -151,7 +151,7 @@ TeeBoxDetector
 
 ↓
 
-FairwayDetector
+BunkerDetector
 
 ↓
 
@@ -193,13 +193,13 @@ Tee Box Detection
 
 Stage 3
 
-Fairway Detection
+Bunker Detection
 
 ↓
 
 Future Stages
 
-* Bunkers
+* Fairway
 * Water
 * Cart Paths
 * Trees
@@ -233,8 +233,8 @@ Examples:
 
 * Greens
 * Tee Boxes
-* Fairways
 * Bunkers
+* Fairways
 * Water
 
 Layers support:
@@ -390,7 +390,7 @@ Pending
 
 □ TeeBoxDetector
 
-□ FairwayDetector
+□ BunkerDetector
 
 ---
 

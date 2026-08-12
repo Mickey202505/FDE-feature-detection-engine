@@ -1,0 +1,1 @@
+{"version":3,"file":"GreenDetector.d.ts","sourceRoot":"","sources":["../../../src/detectors/Green/GreenDetector.ts"],"names":[],"mappings":"AAGA,OAAO,EAAE,SAAS,EAAE,MAAM,uBAAuB,CAAC;AAElD,qBAAa,aAAa;IACxB,OAAO,CAAC,QAAQ,CAAC,OAAO,CAAsB;IAC9C,OAAO,CAAC,QAAQ,CAAC,MAAM,CAAwB;IAC/C,OAAO,CAAC,QAAQ,CAAC,SAAS,CAA0B;IAEpD,MAAM,CAAC,KAAK,EAAE,SAAS,CAAC,MAAM,CAAC,qBAa9B;CACF"}

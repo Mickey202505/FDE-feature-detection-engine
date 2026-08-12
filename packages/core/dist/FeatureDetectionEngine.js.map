@@ -1,0 +1,1 @@
+{"version":3,"file":"FeatureDetectionEngine.js","sourceRoot":"","sources":["../src/FeatureDetectionEngine.ts"],"names":[],"mappings":"AAKA,OAAO,EAAE,iBAAiB,EAAE,MAAM,8BAA8B,CAAC;AAEjE;;GAEG;AACH,MAAM,OAAO,sBAAsB;IAChB,QAAQ,GAAG,IAAI,iBAAiB,EAAE,CAAC;IAEpD,KAAK,CAAC,MAAM,CACV,OAAyB;QAEzB,OAAO,IAAI,CAAC,QAAQ,CAAC,GAAG,CAAC,OAAO,CAAC,CAAC;IACpC,CAAC;CACF"}

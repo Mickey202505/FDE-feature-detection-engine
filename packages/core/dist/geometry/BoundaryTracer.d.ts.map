@@ -1,0 +1,1 @@
+{"version":3,"file":"BoundaryTracer.d.ts","sourceRoot":"","sources":["../../src/geometry/BoundaryTracer.ts"],"names":[],"mappings":"AAAA,MAAM,WAAW,aAAa;IAC5B,CAAC,EAAE,MAAM,CAAC;IACV,CAAC,EAAE,MAAM,CAAC;CACX;AAED,qBAAa,cAAc;IACzB,KAAK,CAAC,IAAI,EAAE,MAAM,EAAE,EAAE,GAAG,aAAa,EAAE,CAuBvC;CACF"}

@@ -1,0 +1,1 @@
+{"version":3,"file":"DetectionPipeline.d.ts","sourceRoot":"","sources":["../../src/pipeline/DetectionPipeline.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EACV,gBAAgB,EAChB,eAAe,EAChB,MAAM,qBAAqB,CAAC;AAI7B,qBAAa,iBAAiB;IAC5B,OAAO,CAAC,QAAQ,CAAC,SAAS,CAA0B;IAE9C,GAAG,CACP,OAAO,EAAE,gBAAgB,GACxB,OAAO,CAAC,eAAe,CAAC,CAO1B;CACF"}

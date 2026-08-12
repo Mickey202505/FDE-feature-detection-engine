@@ -1,0 +1,1 @@
+{"version":3,"file":"ImageConverter.d.ts","sourceRoot":"","sources":["../../src/image/ImageConverter.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,qBAAqB,CAAC;AACvD,OAAO,EAAE,SAAS,EAAE,MAAM,aAAa,CAAC;AAExC,qBAAa,cAAc;IACzB,OAAO,CAAC,MAAM,EAAE,WAAW,GAAG,SAAS,CAAC,MAAM,CAAC,CAc9C;CACF"}

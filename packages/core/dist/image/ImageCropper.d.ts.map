@@ -1,1 +1,0 @@
-{"version":3,"file":"ImageCropper.d.ts","sourceRoot":"","sources":["../../src/image/ImageCropper.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,aAAa,EAAE,MAAM,iBAAiB,CAAC;AAChD,OAAO,EAAE,SAAS,EAAE,MAAM,aAAa,CAAC;AAExC,qBAAa,YAAY;IACvB,IAAI,CAAC,CAAC,EACJ,KAAK,EAAE,SAAS,CAAC,CAAC,CAAC,EACnB,SAAS,EAAE,aAAa,GACvB,SAAS,CAAC,CAAC,CAAC,CAQd;CACF"}

@@ -1,1 +1,0 @@
-{"version":3,"file":"PolygonOptimizer.d.ts","sourceRoot":"","sources":["../../src/geometry/PolygonOptimizer.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,aAAa,EAAE,MAAM,iBAAiB,CAAC;AAEhD,qBAAa,gBAAgB;IAC3B,QAAQ,CAAC,MAAM,EAAE,aAAa,EAAE,GAAG,aAAa,EAAE,CAEjD;CACF"}

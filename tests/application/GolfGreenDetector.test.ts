@@ -2,16 +2,21 @@ import { describe, expect, it } from "vitest";
 import { GolfGreenDetector } from "../../src/application/detectors/GolfGreenDetector";
 import { FeatureType } from "../../src/domain/FeatureType";
 import { WorldPoint } from "../../src/domain/WorldPoint";
+import type { OpenCvAdapter } from "../../src/application/opencv/OpenCvAdapter";
 
 describe("GolfGreenDetector", () => {
+    const emptyAdapter: OpenCvAdapter = {
+        findContours: () => []
+    };
+
     it("can be created", () => {
-        const detector = new GolfGreenDetector();
+        const detector = new GolfGreenDetector(emptyAdapter);
 
         expect(detector).toBeDefined();
     });
 
-    it("returns no features until image analysis is implemented", () => {
-        const detector = new GolfGreenDetector();
+    it("returns no features when there are no contours", () => {
+        const detector = new GolfGreenDetector(emptyAdapter);
 
         const result = detector.detect({
             image: {

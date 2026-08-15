@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { OpenCvAdapterImpl } from "./OpenCvAdapterImpl";
+import { OpenCvJsAdapter } from "./OpenCvJsAdapter";
 import type {
     OpenCvContourCollection,
     OpenCvMat,
     OpenCvRuntime
 } from "./OpenCvTypes";
 
-describe("OpenCvAdapterImpl", () => {
+describe("OpenCvJsAdapter", () => {
     it("converts an OpenCV contour into points", () => {
         const contourMat = {
             rows: 1,
@@ -51,7 +51,7 @@ describe("OpenCvAdapterImpl", () => {
 
         void contours;
 
-        const adapter = new OpenCvAdapterImpl(runtime);
+        const adapter = new OpenCvJsAdapter(runtime);
 
         const image: OpenCvMat = {
             rows: 100,

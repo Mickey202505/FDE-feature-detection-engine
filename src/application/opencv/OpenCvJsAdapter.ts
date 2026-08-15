@@ -15,6 +15,8 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
     public findContours(
         image: OpenCvMat
     ): readonly OpenCvContour[] {
+        this.validateImage(image);
+
         const contours = new this.cv.MatVector();
         const hierarchy = new this.cv.Mat();
 
@@ -43,6 +45,16 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
         } finally {
             hierarchy.delete();
             contours.delete();
+        }
+    }
+
+    private validateImage(
+        image: OpenCvMat
+    ): void {
+        if (image.rows <= 0 || image.cols <= 0) {
+            throw new Error(
+                "OpenCV image must have positive dimensions."
+            );
         }
     }
 

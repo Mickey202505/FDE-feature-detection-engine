@@ -162,6 +162,21 @@ describe("OpenCvJsAdapter", () => {
         expect(contoursDeleted).toBe(true);
         expect(hierarchyDeleted).toBe(true);
     });
+
+    it("rejects an empty image", () => {
+        const runtime = createRuntime([]);
+        const adapter = new OpenCvJsAdapter(runtime);
+
+        const image: OpenCvMat = {
+            rows: 0,
+            cols: 0,
+            delete: () => undefined
+        };
+
+        expect(() => adapter.findContours(image)).toThrow(
+            "OpenCV image must have positive dimensions."
+        );
+    });
 });
 
 function createContour(

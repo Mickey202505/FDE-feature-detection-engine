@@ -20,6 +20,12 @@ export interface OpenCvContourCollection {
     delete(): void;
 }
 
+export interface OpenCvImageData {
+    readonly width: number;
+    readonly height: number;
+    readonly data: Uint8ClampedArray;
+}
+
 export interface OpenCvRuntime {
     readonly Mat: new () => OpenCvMat;
 
@@ -35,4 +41,8 @@ export interface OpenCvRuntime {
 
     readonly RETR_EXTERNAL: number;
     readonly CHAIN_APPROX_SIMPLE: number;
+
+    readonly matFromImageData?: (
+        imageData: OpenCvImageData
+    ) => OpenCvMat;
 }

@@ -34,11 +34,13 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
             for (let i = 0; i < contours.size(); i += 1) {
                 const contour = contours.get(i);
 
-                result.push({
-                    points: this.readPoints(contour)
-                });
-
-                contour.delete();
+                try {
+                    result.push({
+                        points: this.readPoints(contour)
+                    });
+                } finally {
+                    contour.delete();
+                }
             }
 
             return result;

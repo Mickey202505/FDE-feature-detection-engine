@@ -1,0 +1,269 @@
+Task 51
+C:\FDE-feature-detection-engine>findstr /S /N /I /C:".data" node_modules\opencv.js\tests\*.js
+node_modules\opencv.js\tests\test_commons.js:62:                let data = mat.data(),
+node_modules\opencv.js\tests\test_commons.js:67:                        imdata.data[j] = data[i];
+node_modules\opencv.js\tests\test_commons.js:68:                        imdata.data[j + 1] = data[i+1%channels];
+node_modules\opencv.js\tests\test_commons.js:69:                        imdata.data[j + 2] = data[i+2%channels];
+node_modules\opencv.js\tests\test_commons.js:70:                        imdata.data[j + 3] = 255;
+node_modules\opencv.js\tests\test_imgproc.js:73:    let dataView = hist.data;
+node_modules\opencv.js\tests\test_imgproc.js:135:    let sourceView = source.data;
+node_modules\opencv.js\tests\test_imgproc.js:144:    let destView = dest.data;
+node_modules\opencv.js\tests\test_imgproc.js:156:    let sourceView = source.data;
+node_modules\opencv.js\tests\test_imgproc.js:167:    let destView = dest.data;
+node_modules\opencv.js\tests\test_imgproc.js:178:    let data32S = points.data32S;
+node_modules\opencv.js\tests\test_imgproc.js:212:    points.data32F[0] = 0;
+node_modules\opencv.js\tests\test_imgproc.js:213:    points.data32F[1] = 0;
+node_modules\opencv.js\tests\test_imgproc.js:214:    points.data32F[2] = 1;
+node_modules\opencv.js\tests\test_imgproc.js:215:    points.data32F[3] = 0;
+node_modules\opencv.js\tests\test_imgproc.js:216:    points.data32F[4] = 1;
+node_modules\opencv.js\tests\test_imgproc.js:217:    points.data32F[5] = 1;
+node_modules\opencv.js\tests\test_imgproc.js:218:    points.data32F[6] = 0;
+node_modules\opencv.js\tests\test_imgproc.js:219:    points.data32F[7] = 1;
+node_modules\opencv.js\tests\test_imgproc.js:242:      let view = mat2.data;
+node_modules\opencv.js\tests\test_imgproc.js:251:      view = mat2.data;
+node_modules\opencv.js\tests\test_imgproc.js:260:      view = mat2.data;
+node_modules\opencv.js\tests\test_imgproc.js:280:      let view = mat2.data;
+node_modules\opencv.js\tests\test_imgproc.js:298:      let view = mat2.data;
+node_modules\opencv.js\tests\test_imgproc.js:313:      let view = mat2.data;
+node_modules\opencv.js\tests\test_imgproc.js:331:      let view = mat2.data;
+node_modules\opencv.js\tests\test_imgproc.js:340:      view = mat2.data;
+node_modules\opencv.js\tests\test_imgproc.js:468:      let view = mat2.data;
+node_modules\opencv.js\tests\test_imgproc.js:474:      assert.deepEqual(mat3.data, expectedMin);
+node_modules\opencv.js\tests\test_imgproc.js:479:      view = mat2.data;
+node_modules\opencv.js\tests\test_imgproc.js:485:      assert.deepEqual(mat3.data, expectedMax);
+node_modules\opencv.js\tests\test_imgproc.js:520:      let view = mat3.data;
+node_modules\opencv.js\tests\test_imgproc.js:526:      assert.deepEqual(mat3.data, expectedNot);
+node_modules\opencv.js\tests\test_imgproc.js:530:      view = mat3.data;
+node_modules\opencv.js\tests\test_imgproc.js:536:      assert.deepEqual(mat3.data, expectedAnd);
+node_modules\opencv.js\tests\test_imgproc.js:541:      view = mat3.data;
+node_modules\opencv.js\tests\test_imgproc.js:547:      assert.deepEqual(mat3.data, expectedOr);
+node_modules\opencv.js\tests\test_imgproc.js:556:      assert.deepEqual(mat3.data, expectedXor);
+node_modules\opencv.js\tests\test_imgproc.js:606:      let view = dst.data;
+node_modules\opencv.js\tests\test_imgproc.js:612:      assert.deepEqual(dst.data, expectedAbsDiff);
+node_modules\opencv.js\tests\test_imgproc.js:616:      view = dst.data;
+node_modules\opencv.js\tests\test_imgproc.js:622:      assert.deepEqual(dst.data, expectedAdd);
+node_modules\opencv.js\tests\test_imgproc.js:626:      view = dst.data;
+node_modules\opencv.js\tests\test_imgproc.js:632:      assert.deepEqual(dst.data, expectedWeightedAdd);
+node_modules\opencv.js\tests\test_imgproc.js:637:      view = dst.data;
+node_modules\opencv.js\tests\test_imgproc.js:643:      assert.deepEqual(dst.data, expectedWeightedAdd);
+node_modules\opencv.js\tests\test_imgproc.js:804:      assert.deepEqualWithTolerance(inv1.data32F, expected1, 0.0001);
+node_modules\opencv.js\tests\test_imgproc.js:809:      assert.deepEqualWithTolerance(inv3.data32F, expected3, 0.0001);
+node_modules\opencv.js\tests\test_imgproc.js:819:      assert.deepEqualWithTolerance(inv3.data32F, expected3, 0.0001);
+node_modules\opencv.js\tests\test_imgproc.js:820:      //console.log(inv3.data32F);
+node_modules\opencv.js\tests\test_imgproc.js:825:      assert.deepEqualWithTolerance(inv3.data32F, expected3, 0.0001);
+node_modules\opencv.js\tests\test_imgproc.js:829:      assert.deepEqualWithTolerance(inv4.data32F, expected4, 0.0001);
+node_modules\opencv.js\tests\test_imgproc.js:833:      assert.deepEqualWithTolerance(inv4.data32F, expected4, 0.0001);
+node_modules\opencv.js\tests\test_mat.js:147:        assert.deepEqual(mat.data, mat2.data);
+node_modules\opencv.js\tests\test_mat.js:163:        assert.deepEqual(mat.data, mat2.data);
+node_modules\opencv.js\tests\test_mat.js:180:        assert.deepEqual(mat.data, mat2.data);
+node_modules\opencv.js\tests\test_mat.js:230:        assert.deepEqual(mat8UC1.data, new Uint8Array(arrayC1));
+node_modules\opencv.js\tests\test_mat.js:231:        assert.deepEqual(mat8UC2.data, new Uint8Array(arrayC2));
+node_modules\opencv.js\tests\test_mat.js:232:        assert.deepEqual(mat8UC3.data, new Uint8Array(arrayC3));
+node_modules\opencv.js\tests\test_mat.js:233:        assert.deepEqual(mat8UC4.data, new Uint8Array(arrayC4));
+node_modules\opencv.js\tests\test_mat.js:235:        assert.deepEqual(mat8SC1.data8S, new Int8Array(arrayC1));
+node_modules\opencv.js\tests\test_mat.js:236:        assert.deepEqual(mat8SC2.data8S, new Int8Array(arrayC2));
+node_modules\opencv.js\tests\test_mat.js:237:        assert.deepEqual(mat8SC3.data8S, new Int8Array(arrayC3));
+node_modules\opencv.js\tests\test_mat.js:238:        assert.deepEqual(mat8SC4.data8S, new Int8Array(arrayC4));
+node_modules\opencv.js\tests\test_mat.js:240:        assert.deepEqual(mat16UC1.data16U, new Uint16Array(arrayC1));
+node_modules\opencv.js\tests\test_mat.js:241:        assert.deepEqual(mat16UC2.data16U, new Uint16Array(arrayC2));
+node_modules\opencv.js\tests\test_mat.js:242:        assert.deepEqual(mat16UC3.data16U, new Uint16Array(arrayC3));
+node_modules\opencv.js\tests\test_mat.js:243:        assert.deepEqual(mat16UC4.data16U, new Uint16Array(arrayC4));
+node_modules\opencv.js\tests\test_mat.js:245:        assert.deepEqual(mat16SC1.data16S, new Int16Array(arrayC1));
+node_modules\opencv.js\tests\test_mat.js:246:        assert.deepEqual(mat16SC2.data16S, new Int16Array(arrayC2));
+node_modules\opencv.js\tests\test_mat.js:247:        assert.deepEqual(mat16SC3.data16S, new Int16Array(arrayC3));
+node_modules\opencv.js\tests\test_mat.js:248:        assert.deepEqual(mat16SC4.data16S, new Int16Array(arrayC4));
+node_modules\opencv.js\tests\test_mat.js:250:        assert.deepEqual(mat32SC1.data32S, new Int32Array(arrayC1));
+node_modules\opencv.js\tests\test_mat.js:251:        assert.deepEqual(mat32SC2.data32S, new Int32Array(arrayC2));
+node_modules\opencv.js\tests\test_mat.js:252:        assert.deepEqual(mat32SC3.data32S, new Int32Array(arrayC3));
+node_modules\opencv.js\tests\test_mat.js:253:        assert.deepEqual(mat32SC4.data32S, new Int32Array(arrayC4));
+node_modules\opencv.js\tests\test_mat.js:255:        assert.deepEqual(mat32FC1.data32F, new Float32Array(arrayC1));
+node_modules\opencv.js\tests\test_mat.js:256:        assert.deepEqual(mat32FC2.data32F, new Float32Array(arrayC2));
+node_modules\opencv.js\tests\test_mat.js:257:        assert.deepEqual(mat32FC3.data32F, new Float32Array(arrayC3));
+node_modules\opencv.js\tests\test_mat.js:258:        assert.deepEqual(mat32FC4.data32F, new Float32Array(arrayC4));
+node_modules\opencv.js\tests\test_mat.js:260:        assert.deepEqual(mat64FC1.data64F, new Float64Array(arrayC1));
+node_modules\opencv.js\tests\test_mat.js:261:        assert.deepEqual(mat64FC2.data64F, new Float64Array(arrayC2));
+node_modules\opencv.js\tests\test_mat.js:262:        assert.deepEqual(mat64FC3.data64F, new Float64Array(arrayC3));
+node_modules\opencv.js\tests\test_mat.js:263:        assert.deepEqual(mat64FC4.data64F, new Float64Array(arrayC4));
+node_modules\opencv.js\tests\test_mat.js:311:        assert.deepEqual(mat.data, new Uint8Array(imageData.data));
+node_modules\opencv.js\tests\test_mat.js:325:        assert.deepEqual(mat.data, mat1.data);
+node_modules\opencv.js\tests\test_mat.js:370:        let view = mat.data;
+node_modules\opencv.js\tests\test_mat.js:387:        let view = mat.data;
+node_modules\opencv.js\tests\test_mat.js:408:        let view = mat.data;
+node_modules\opencv.js\tests\test_mat.js:434:        let view = mat.data32F;
+node_modules\opencv.js\tests\test_mat.js:451:        let view = mat.data32F;
+node_modules\opencv.js\tests\test_mat.js:472:        let view = mat.data32F;
+node_modules\opencv.js\tests\test_mat.js:497:        let view = mat.data;
+node_modules\opencv.js\tests\test_mat.js:507:        let view = mat.data;
+node_modules\opencv.js\tests\test_mat.js:520:        var view = mat.data;
+node_modules\opencv.js\tests\test_mat.js:527:        var view = mat.data;
+node_modules\opencv.js\tests\test_mat.js:541:        var view = mat.data;
+node_modules\opencv.js\tests\test_mat.js:549:        var view = mat.data;
+node_modules\opencv.js\tests\test_mat.js:575:        let view = row.data;
+node_modules\opencv.js\tests\test_mat.js:590:        let view = grayMat.data;
+node_modules\opencv.js\tests\test_mat.js:615:        let view = mat.data;
+node_modules\opencv.js\tests\test_mat.js:625:        view = rMat.data;
+node_modules\opencv.js\tests\test_mat.js:629:        view = gMat.data;
+node_modules\opencv.js\tests\test_mat.js:633:        view = bMat.data;
+node_modules\opencv.js\tests\test_mat.js:709:        assert.deepEqual(mat3.data, expected);
+node_modules\opencv.js\tests\test_mat.js:740:        assert.deepEqual(unsignedCharView, mat.data);
+node_modules\opencv.js\tests\test_mat.js:741:        assert.deepEqual(charView, mat.data8S);
+node_modules\opencv.js\tests\test_mat.js:742:        assert.deepEqual(shortView, mat.data16S);
+node_modules\opencv.js\tests\test_mat.js:743:        assert.deepEqual(unsignedShortView, mat.data16U);
+node_modules\opencv.js\tests\test_mat.js:744:        assert.deepEqual(intView, mat.data32S);
+node_modules\opencv.js\tests\test_mat.js:745:        assert.deepEqual(float32View, mat.data32F);
+node_modules\opencv.js\tests\test_mat.js:746:        assert.deepEqual(float64View, mat.data64F);
+node_modules\opencv.js\tests\test_mat.js:854:        src.data[2] = 0;
+node_modules\opencv.js\tests\test_mat.js:855:        src.data[5] = 2;
+node_modules\opencv.js\tests\test_mat.js:877:        assert.deepEqual(roi.data, new Uint8Array([mat.ucharAt(1, 1)]));
+node_modules\opencv.js\tests\test_mat.js:913:        assert.deepEqual(mat.data, new Uint8Array([2, 3]));
+node_modules\opencv.js\tests\test_mat.js:921:        assert.deepEqual(mat.data, new Uint8Array([2, 3]));
+
+Task 52
+C:\FDE-feature-detection-engine>findstr /S /N /I /C:"data32S" node_modules\opencv.js\tests\*.js
+node_modules\opencv.js\tests\test_imgproc.js:178:    let data32S = points.data32S;
+node_modules\opencv.js\tests\test_imgproc.js:179:    data32S[0]=50;
+node_modules\opencv.js\tests\test_imgproc.js:180:    data32S[1]=56;
+node_modules\opencv.js\tests\test_imgproc.js:181:    data32S[2]=53;
+node_modules\opencv.js\tests\test_imgproc.js:182:    data32S[3]=53;
+node_modules\opencv.js\tests\test_imgproc.js:183:    data32S[4]=46;
+node_modules\opencv.js\tests\test_imgproc.js:184:    data32S[5]=54;
+node_modules\opencv.js\tests\test_imgproc.js:185:    data32S[6]=49;
+node_modules\opencv.js\tests\test_imgproc.js:186:    data32S[7]=51;
+node_modules\opencv.js\tests\test_mat.js:250:        assert.deepEqual(mat32SC1.data32S, new Int32Array(arrayC1));
+node_modules\opencv.js\tests\test_mat.js:251:        assert.deepEqual(mat32SC2.data32S, new Int32Array(arrayC2));
+node_modules\opencv.js\tests\test_mat.js:252:        assert.deepEqual(mat32SC3.data32S, new Int32Array(arrayC3));
+node_modules\opencv.js\tests\test_mat.js:253:        assert.deepEqual(mat32SC4.data32S, new Int32Array(arrayC4));
+node_modules\opencv.js\tests\test_mat.js:744:        assert.deepEqual(intView, mat.data32S);
+
+Task 53
+C:\FDE-feature-detection-engine>findstr /S /N /I /C:"data8U" node_modules\opencv.js\tests\*.js
+
+C:\FDE-feature-detection-engine>
+
+Task 54
+C:\FDE-feature-detection-engine>findstr /S /N /I /C:"matFromImageData" node_modules\opencv.js\tests\*.js
+node_modules\opencv.js\tests\test_mat.js:295:    // matFromImageData
+node_modules\opencv.js\tests\test_mat.js:309:        let mat = cv.matFromImageData(imageData);
+
+Task 55
+C:\FDE-feature-detection-engine>findstr /S /N /I /C:"CV_8UC4" node_modules\opencv.js\tests\*.js
+node_modules\opencv.js\tests\test_mat.js:97:        let mat = new cv.Mat(2, 2, cv.CV_8UC4, [0, 1, 2, 3]);
+node_modules\opencv.js\tests\test_mat.js:128:        mat.create({height: 10, width: 5}, cv.CV_8UC4);
+node_modules\opencv.js\tests\test_mat.js:131:        assert.ok(mat.type() === cv.CV_8UC4);
+node_modules\opencv.js\tests\test_mat.js:198:        let mat8UC4 = cv.matFromArray(2, 2, cv.CV_8UC4, arrayC4);
+node_modules\opencv.js\tests\test_mat.js:318:        let mat = new cv.Mat(2, 2, cv.CV_8UC4, new cv.Scalar(1, 0, 1, 0));
+node_modules\opencv.js\tests\test_mat.js:337:        let mat = new cv.Mat(2, 2, cv.CV_8UC4);
+node_modules\opencv.js\tests\test_utils.js:141:        mat.create({width: 5, height: 10}, cv.CV_8UC4);
+node_modules\opencv.js\tests\test_utils.js:144:        assert.ok(mat.type() === cv.CV_8UC4);
+node_modules\opencv.js\tests\test_utils.js:154:        mat.create(new cv.Size(5, 10), cv.CV_8UC4);
+node_modules\opencv.js\tests\test_utils.js:157:        assert.ok(mat.type() === cv.CV_8UC4);
+
+Task 56
+C:\FDE-feature-detection-engine>findstr /S /N /I /C:"CV_8UC1" node_modules\opencv.js\tests\*.js
+node_modules\opencv.js\tests\test_imgproc.js:42:    //var vec0 = new cv.Mat.zeros([20, 20], cv.CV_8UC1);
+node_modules\opencv.js\tests\test_imgproc.js:43:    var vec1 = new cv.Mat.ones({height: 20, width: 20}, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_imgproc.js:109:    let source = new cv.Mat(10, 10, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_imgproc.js:134:    let source = new cv.Mat(1, 5, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_imgproc.js:155:    let source = cv.Mat.zeros(1, 5, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_imgproc.js:274:      let mat1 = cv.Mat.ones(7, 7, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_imgproc.js:406:      let mat = cv.Mat.ones(11, 11, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_imgproc.js:461:      let mat1 = new cv.Mat(3, 3, cv.CV_8UC1, dataPtr, 0);
+node_modules\opencv.js\tests\test_imgproc.js:462:      let mat2 = new cv.Mat(3, 3, cv.CV_8UC1, dataPtr2, 0);
+node_modules\opencv.js\tests\test_imgproc.js:512:      let mat1 = new cv.Mat(3, 3, cv.CV_8UC1, dataPtr, 0);
+node_modules\opencv.js\tests\test_imgproc.js:513:      let mat2 = new cv.Mat(3, 3, cv.CV_8UC1, dataPtr2, 0);
+node_modules\opencv.js\tests\test_imgproc.js:597:      let mat1 = new cv.Mat(3, 3, cv.CV_8UC1, dataPtr, 0);
+node_modules\opencv.js\tests\test_imgproc.js:598:      let mat2 = new cv.Mat(3, 3, cv.CV_8UC1, dataPtr2, 0);
+node_modules\opencv.js\tests\test_imgproc.js:599:      let mat3 = new cv.Mat(3, 3, cv.CV_8UC1, dataPtr3, 0);
+node_modules\opencv.js\tests\test_mat.js:80:        let mat = new cv.Mat(10, 10, cv.CV_8UC1, data, 0);
+node_modules\opencv.js\tests\test_mat.js:82:        assert.equal(mat.type(), cv.CV_8UC1);
+node_modules\opencv.js\tests\test_mat.js:140:        let mat = cv.Mat.ones(5, 5, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_mat.js:155:        let mat = cv.Mat.ones(5, 5, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_mat.js:171:        let mat = cv.Mat.ones(5, 5, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_mat.js:173:        let mask = new cv.Mat(5, 5, cv.CV_8UC1, new cv.Scalar(1));
+node_modules\opencv.js\tests\test_mat.js:195:        let mat8UC1 = cv.matFromArray(2, 2, cv.CV_8UC1, arrayC1);
+node_modules\opencv.js\tests\test_mat.js:349:        let mask = cv.matFromArray(2, 2, cv.CV_8UC1, [0, 1, 0, 1]);
+node_modules\opencv.js\tests\test_mat.js:367:    // cv.CV_8UC1 + Mat::ptr(int).
+node_modules\opencv.js\tests\test_mat.js:369:        let mat = new cv.Mat(10, 10, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_mat.js:496:        let mat = cv.Mat.zeros(10, 10, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_mat.js:506:        let mat = cv.Mat.zeros({height: 10, width: 10}, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_mat.js:519:        var mat = cv.Mat.ones(10, 10, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_mat.js:526:        var mat = cv.Mat.ones({height: 10, width: 10}, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_mat.js:540:        var mat = cv.Mat.eye(4, 4, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_mat.js:548:        var mat = cv.Mat.eye({height: 4, width: 4}, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_mat.js:586:        let grayMat = cv.Mat.zeros(5, 5, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_mat.js:650:        let mat2 = cv.Mat.zeros(5, 5, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_mat.js:670:        let mat2 = cv.Mat.zeros(5, 5, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_mat.js:685:        let mat = cv.Mat.ones(5, 5, cv.CV_8UC1),
+node_modules\opencv.js\tests\test_mat.js:686:            mat2 = cv.Mat.eye(5, 5, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_mat.js:700:        let mat = cv.Mat.ones(4, 4, cv.CV_8UC1),
+node_modules\opencv.js\tests\test_mat.js:701:            mat2 = cv.Mat.eye(4, 4, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_mat.js:728:        let mat = new cv.Mat(8, 1, cv.CV_8UC1, dataPtr, 0);
+node_modules\opencv.js\tests\test_mat.js:757:        let mat = new cv.Mat(8, 1, cv.CV_8UC1, dataPtr, 0);
+node_modules\opencv.js\tests\test_mat.js:852:        let src = cv.Mat.ones(4, 4, cv.CV_8UC1);
+node_modules\opencv.js\tests\test_mat.js:871:        let mat = cv.matFromArray(2, 2, cv.CV_8UC1, [0, 1, 2, 3])
+node_modules\opencv.js\tests\test_mat.js:887:        let src = cv.matFromArray(2, 2, cv.CV_8UC1, [0, 1, 2, 3])
+node_modules\opencv.js\tests\test_mat.js:932:        let mat = cv.matFromArray(3, 3, cv.CV_8UC1, [0, 1, 2, 3, 4, 5, 6, 7, 8])
+node_modules\opencv.js\tests\test_objdetect.js:103:                     mat = new cv.Mat({height: 10, width: 10}, cv.CV_8UC1),
+
+Task 57
+C:\FDE-feature-detection-engine>findstr /N /I /C:".data" node_modules\opencv.js\README.md
+63:  data: dst.data,
+68:fs.writeFileSync("out_img.jpg", jpeg_data.data);
+114:  yuvMat.data.set(frame);
+161:      data: rgbMat.data,
+167:    fs.writeFileSync(filename, jpegData.data);
+
+Task 58
+Too much data to fit in buffer
+
+Task 59
+Too much data to fit in buffer
+
+
+Task 60
+C:\FDE-feature-detection-engine>findstr /N /I /C:"cv.morphologyEx" node_modules\opencv.js\tests\*.js
+
+C:\FDE-feature-detection-engine>
+
+Task 61
+C:\FDE-feature-detection-engine>type src\application\opencv\OpenCvTypes.ts
+export interface OpenCvMat {
+    readonly rows: number;
+    readonly cols: number;
+    readonly data32S?: Int32Array;
+    delete(): void;
+}
+
+export interface OpenCvPoint {
+    readonly x: number;
+    readonly y: number;
+}
+
+export interface OpenCvContour {
+    readonly points: readonly OpenCvPoint[];
+}
+
+export interface OpenCvContourCollection {
+    readonly size: () => number;
+    readonly get: (index: number) => OpenCvMat;
+    delete(): void;
+}
+
+export interface OpenCvRuntime {
+    readonly Mat: new () => OpenCvMat;
+
+    readonly MatVector: new () => OpenCvContourCollection;
+
+    findContours(
+        image: OpenCvMat,
+        contours: OpenCvContourCollection,
+        hierarchy: OpenCvMat,
+        mode: number,
+        method: number
+    ): void;
+
+    readonly RETR_EXTERNAL: number;
+    readonly CHAIN_APPROX_SIMPLE: number;
+}
+
+

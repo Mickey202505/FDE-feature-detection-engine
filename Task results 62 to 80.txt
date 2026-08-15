@@ -1,0 +1,163 @@
+Task 62
+C:\FDE-feature-detection-engine>findstr /N /I /C:"matFromImageData" node_modules\opencv.js\README.md node_modules\opencv.js\tests\*.js
+node_modules\opencv.js\README.md:54:var src = cv.matFromImageData(raw_data);
+node_modules\opencv.js\tests\test_mat.js:295:    // matFromImageData
+node_modules\opencv.js\tests\test_mat.js:309:        let mat = cv.matFromImageData(imageData);
+
+Task 63
+C:\FDE-feature-detection-engine>findstr /N /I /C:"inRange" node_modules\opencv.js\README.md node_modules\opencv.js\tests\*.js
+node_modules\opencv.js\tests\test_imgproc.js:934:  function("inRange", select_overload<void(const cv::Mat&, const cv::Mat&, const cv::Mat&, cv::Mat&)>(&Wrappers::inRange_wrapper));
+
+Task 64
+C:\FDE-feature-detection-engine>findstr /N /I /C:"inRange" node_modules\opencv.js\README.md node_modules\opencv.js\tests\*.js
+node_modules\opencv.js\tests\test_imgproc.js:934:  function("inRange", select_overload<void(const cv::Mat&, const cv::Mat&, const cv::Mat&, cv::Mat&)>(&Wrappers::inRange_wrapper));
+
+C:\FDE-feature-detection-engine>
+C:\FDE-feature-detection-engine>
+C:\FDE-feature-detection-engine>findstr /N /I /C:"threshold" node_modules\opencv.js\README.md node_modules\opencv.js\tests\*.js
+node_modules\opencv.js\tests\test_features2d.js:85:        params.thresholdStep = 10;
+node_modules\opencv.js\tests\test_features2d.js:86:        params.minThreshold = 50;
+node_modules\opencv.js\tests\test_features2d.js:87:        params.maxThreshold = 220;
+node_modules\opencv.js\tests\test_features2d.js:139:        assert.equal(detector.getEdgeThreshold(), 32);
+node_modules\opencv.js\tests\test_features2d.js:198:        assert.equal(detector.getThreshold(), 15);
+node_modules\opencv.js\tests\test_imgproc.js:126:  const THRESHOLD = 127.0;
+node_modules\opencv.js\tests\test_imgproc.js:127:  const THRESHOLD_MAX = 210.0;
+node_modules\opencv.js\tests\test_imgproc.js:130:  //   double threshold(InputArray, OutputArray, double, double, int)
+node_modules\opencv.js\tests\test_imgproc.js:132:  //   double threshold(const Mat&, Mat&, double, double, int)
+node_modules\opencv.js\tests\test_imgproc.js:136:    sourceView[0] = 0;   // < threshold
+node_modules\opencv.js\tests\test_imgproc.js:137:    sourceView[1] = 100; // < threshold
+node_modules\opencv.js\tests\test_imgproc.js:138:    sourceView[2] = 200; // > threshold
+node_modules\opencv.js\tests\test_imgproc.js:142:    cv.threshold(source, dest, THRESHOLD, THRESHOLD_MAX, cv.THRESH_BINARY);
+node_modules\opencv.js\tests\test_imgproc.js:147:    assert.equal(destView[2], THRESHOLD_MAX);
+node_modules\opencv.js\tests\test_imgproc.js:151:  //   void adaptiveThreshold(InputArray, OutputArray, double, int, int, int, double);
+node_modules\opencv.js\tests\test_imgproc.js:153:  //   void adaptiveThreshold(const Mat &, Mat &, double, int, int, int, double);
+node_modules\opencv.js\tests\test_imgproc.js:164:    cv.adaptiveThreshold(source, dest, THRESHOLD_MAX,
+node_modules\opencv.js\tests\test_imgproc.js:169:    assert.equal(destView[1], THRESHOLD_MAX);
+node_modules\opencv.js\tests\test_imgproc.js:170:    assert.equal(destView[2], THRESHOLD_MAX);
+node_modules\opencv.js\tests\test_objdetect.js:40:      //                                int groupThreshold, double eps = 0.2);
+node_modules\opencv.js\tests\test_objdetect.js:44:                      groupThreshold = 1,
+node_modules\opencv.js\tests\test_objdetect.js:53:              cv.groupRectangles(rectList, weights, groupThreshold, eps);
+node_modules\opencv.js\tests\test_video.js:53:                  varThreshold=15,
+node_modules\opencv.js\tests\test_video.js:56:          let mog2 = new cv.BackgroundSubtractorMOG2(history, varThreshold, detectShadows);
+node_modules\opencv.js\tests\test_video.js:74:          mog2 = new cv.BackgroundSubtractorMOG2(history, varThreshold);
+
+Task 65
+C:\FDE-feature-detection-engine>findstr /N /I /C:"morphologyEx" node_modules\opencv.js\README.md node_modules\opencv.js\tests\*.js
+node_modules\opencv.js\tests\test_imgproc.js:956:  function("morphologyEx", select_overload<void(const cv::Mat&, cv::Mat&, int, const cv::Mat&, Point, int, int, const Scalar&)>(&Wrappers::morphologyEx_wrapper));
+
+Task 66
+C:\FDE-feature-detection-engine>findstr /N /I /C:"getStructuringElement" node_modules\opencv.js\README.md node_modules\opencv.js\tests\*.js
+
+Task 67
+C:\FDE-feature-detection-engine>findstr /N /I /C:"contourArea" node_modules\opencv.js\README.md node_modules\opencv.js\tests\*.js
+node_modules\opencv.js\tests\test_imgproc.js:189:    let area = cv.contourArea(points, false);
+node_modules\opencv.js\tests\test_imgproc.js:198:    area = cv.contourArea(points);
+node_modules\opencv.js\tests\test_imgproc.js:883:  function("contourArea", select_overload<double(const cv::Mat&, bool)>(&Wrappers::contourArea_wrapper));
+
+Task 68
+C:\FDE-feature-detection-engine>findstr /N /I /C:"approxPolyDP" node_modules\opencv.js\README.md node_modules\opencv.js\tests\*.js
+node_modules\opencv.js\tests\test_imgproc.js:865:  function("approxPolyDP", select_overload<void(const cv::Mat&, cv::Mat&, double, bool)>(&Wrappers::approxPolyDP_wrapper));
+
+Task 69
+C:\FDE-feature-detection-engine>findstr /N /I /C:"boundingRect" node_modules\opencv.js\README.md node_modules\opencv.js\tests\*.js
+node_modules\opencv.js\tests\test_imgproc.js:870:  function("boundingRect", select_overload<Rect(const cv::Mat&)>(&Wrappers::boundingRect_wrapper));
+node_modules\opencv.js\tests\test_utils.js:210:    assert.equal(points[0].x, cv.RotatedRect.boundingRect2f(rect).x);
+node_modules\opencv.js\tests\test_utils.js:211:    assert.equal(points[1].y, cv.RotatedRect.boundingRect2f(rect).y);
+
+Task 70
+C:\FDE-feature-detection-engine>findstr /N /I /C:"moments" node_modules\opencv.js\README.md node_modules\opencv.js\tests\*.js
+node_modules\opencv.js\tests\test_imgproc.js:175:  // moments
+node_modules\opencv.js\tests\test_imgproc.js:188:    let m = cv.moments(points, false);
+node_modules\opencv.js\tests\test_imgproc.js:197:    m = cv.moments(points);
+node_modules\opencv.js\tests\test_imgproc.js:851:  function("HuMoments", select_overload<void(const Moments&, cv::Mat&)>(&Wrappers::HuMoments_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:955:  function("moments", select_overload<Moments(const cv::Mat&, bool)>(&Wrappers::moments_wrapper));
+
+Task 71
+C:\FDE-feature-detection-engine>findstr /N /I /C:"Scalar" node_modules\opencv.js\tests\*.js
+node_modules\opencv.js\tests\test_imgproc.js:867:  function("arrowedLine", select_overload<void(cv::Mat&, Point, Point, const Scalar&, int, int, int, double)>(&Wrappers::arrowedLine_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:876:  function("circle", select_overload<void(cv::Mat&, Point, int, const Scalar&, int, int, int)>(&Wrappers::circle_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:888:  function("copyMakeBorder", select_overload<void(const cv::Mat&, cv::Mat&, int, int, int, int, int, const Scalar&)>(&Wrappers::copyMakeBorder_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:903:  function("drawContours", select_overload<void(cv::Mat&, const std::vector<cv::Mat>&, int, const Scalar&, int, int, const cv::Mat&, int, Point)>(&Wrappers::drawContours_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:905:  function("ellipse", select_overload<void(cv::Mat&, Point, Size, double, double, double, const Scalar&, int, int, int)>(&Wrappers::ellipse_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:906:  function("ellipse1", select_overload<void(cv::Mat&, const RotatedRect&, const Scalar&, int, int)>(&Wrappers::ellipse_wrapper1));
+node_modules\opencv.js\tests\test_imgproc.js:911:  function("fillConvexPoly", select_overload<void(cv::Mat&, const cv::Mat&, const Scalar&, int, int)>(&Wrappers::fillConvexPoly_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:912:  function("fillPoly", select_overload<void(cv::Mat&, const std::vector<cv::Mat>&, const Scalar&, int, int, Point)>(&Wrappers::fillPoly_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:942:  function("line", select_overload<void(cv::Mat&, Point, Point, const Scalar&, int, int, int)>(&Wrappers::line_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:949:  function("mean", select_overload<Scalar(const cv::Mat&, const cv::Mat&)>(&Wrappers::mean_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:956:  function("morphologyEx", select_overload<void(const cv::Mat&, cv::Mat&, int, const cv::Mat&, Point, int, int, const Scalar&)>(&Wrappers::morphologyEx_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:968:  function("polylines", select_overload<void(cv::Mat&, const std::vector<cv::Mat>&, bool, const Scalar&, int, int, int)>(&Wrappers::polylines_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:971:  function("putText", select_overload<void(cv::Mat&, const String&, Point, int, double, Scalar, int, int, bool)>(&Wrappers::putText_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:977:  function("rectangle", select_overload<void(cv::Mat&, Point, Point, const Scalar&, int, int, int)>(&Wrappers::rectangle_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:979:  function("remap", select_overload<void(const cv::Mat&, cv::Mat&, const cv::Mat&, const cv::Mat&, int, int, const Scalar&)>(&Wrappers::remap_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:985:  function("setIdentity", select_overload<void(cv::Mat&, const Scalar&)>(&Wrappers::setIdentity_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:995:  function("sumElems", select_overload<Scalar(const cv::Mat&)>(&Wrappers::sum_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:996:  function("trace", select_overload<Scalar(const cv::Mat&)>(&Wrappers::trace_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:1001:  function("warpAffine", select_overload<void(const cv::Mat&, cv::Mat&, const cv::Mat&, Size, int, int, const Scalar&)>(&Wrappers::warpAffine_wrapper));
+node_modules\opencv.js\tests\test_imgproc.js:1002:  function("warpPerspective", select_overload<void(const cv::Mat&, cv::Mat&, const cv::Mat&, Size, int, int, const Scalar&)>(&Wrappers::warpPerspective_wrapper));
+node_modules\opencv.js\tests\test_mat.js:94:    // Mat::Mat(int rows, int cols, int type, const Scalar& scalar)
+node_modules\opencv.js\tests\test_mat.js:173:        let mask = new cv.Mat(5, 5, cv.CV_8UC1, new cv.Scalar(1));
+node_modules\opencv.js\tests\test_mat.js:318:        let mat = new cv.Mat(2, 2, cv.CV_8UC4, new cv.Scalar(1, 0, 1, 0));
+
+Task 72
+C:\FDE-feature-detection-engine>findstr /N /I /C:"MatVector" node_modules\opencv.js\tests\*.js
+node_modules\opencv.js\tests\test_imgproc.js:45:    var source = new cv.MatVector();
+node_modules\opencv.js\tests\test_imgproc.js:376:      let input = new cv.MatVector();
+node_modules\opencv.js\tests\test_mat.js:620:        let bgr_planes = new cv.MatVector();
+
+Task 73
+C:\FDE-feature-detection-engine>findstr /N /I /C:"RETR_EXTERNAL" node_modules\opencv.js\tests\*.js
+
+C:\FDE-feature-detection-engine>
+
+Task 74
+C:\FDE-feature-detection-engine>findstr /N /I /C:"CHAIN_APPROX_SIMPLE" node_modules\opencv.js\tests\*.js
+
+C:\FDE-feature-detection-engine>
+
+Task 75
+C:\FDE-feature-detection-engine>findstr /N /I /C:"COLOR_BGR2HSV" node_modules\opencv.js\tests\*.js
+
+C:\FDE-feature-detection-engine>
+
+Task 76
+C:\FDE-feature-detection-engine>findstr /N /I /C:"COLOR_RGBA2HSV" node_modules\opencv.js\tests\*.js
+
+C:\FDE-feature-detection-engine>
+
+Task 77
+C:\FDE-feature-detection-engine>findstr /S /N /I /C:"type OpenCv" src
+
+C:\FDE-feature-detection-engine>
+
+Task 78
+C:\FDE-feature-detection-engine>findstr /S /N /I /C:"data32S" src tests
+
+C:\FDE-feature-detection-engine>
+
+Task 79
+C:\FDE-feature-detection-engine>findstr /S /N /I /C:"metresPerPixel" src tests
+
+C:\FDE-feature-detection-engine>
+
+Task 80
+C:\FDE-feature-detection-engine>npx tsc --noEmit && npx vitest run
+
+ RUN  v4.1.10 C:/FDE-feature-detection-engine
+
+ ✓ tests/domain/Polygon.test.ts (3 tests) 26ms
+ ✓ tests/application/ContourToPolygon.test.ts (3 tests) 29ms
+ ✓ tests/application/GolfGreenDetector.test.ts (3 tests) 23ms
+ ✓ src/domain/Feature.test.ts (3 tests) 22ms
+ ✓ tests/integration/FeatureDetectionEngine.test.ts (2 tests) 6ms
+ ✓ tests/api/DetectionRequest.test.ts (1 test) 4ms
+ ✓ src/application/opencv/OpenCvAdapter.test.ts (1 test) 6ms
+ ✓ tests/application/DetectionPipeline.test.ts (1 test) 4ms
+ ✓ tests/domain/WorldPoint.test.ts (2 tests) 6ms
+ ✓ tests/domain/FeatureType.test.ts (1 test) 3ms
+
+ Test Files  10 passed (10)
+      Tests  20 passed (20)
+   Start at  15:16:01
+   Duration  1.74s (transform 1.17s, setup 0ms, import 1.82s, tests 130ms, environment 2ms)
+
+

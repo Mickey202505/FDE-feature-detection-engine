@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-    OpenCvImageLoader,
-    type OpenCvImageSource
-} from "../../src/OpenCvImageLoader";
+import { OpenCvImageLoader } from "../../src/OpenCvImageLoader";
+import type { OpenCvImageData } from "../../src/application/opencv/OpenCvTypes";
 import type {
     OpenCvMat,
     OpenCvRuntime
@@ -34,7 +32,7 @@ class FakeMatVector {
 function createImage(
     width = 2,
     height = 2
-): OpenCvImageSource {
+): OpenCvImageData {
     return {
         width,
         height,

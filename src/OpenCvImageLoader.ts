@@ -1,13 +1,8 @@
 import type {
+    OpenCvImageData,
     OpenCvMat,
     OpenCvRuntime
 } from "./application/opencv/OpenCvTypes";
-
-export interface OpenCvImageSource {
-    readonly width: number;
-    readonly height: number;
-    readonly data: Uint8ClampedArray;
-}
 
 export class OpenCvImageLoader {
     private readonly cv: OpenCvRuntime;
@@ -17,7 +12,7 @@ export class OpenCvImageLoader {
     }
 
     public fromImageData(
-        image: OpenCvImageSource
+        image: OpenCvImageData
     ): OpenCvMat {
         if (image.width <= 0 || image.height <= 0) {
             throw new Error(

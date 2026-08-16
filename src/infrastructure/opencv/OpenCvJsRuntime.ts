@@ -1,4 +1,4 @@
-import cv = require("opencv.js");
+import cv from "opencv.js";
 import type { OpenCvRuntime } from "../../application/opencv/OpenCvTypes";
 
 export const openCvRuntime: OpenCvRuntime = {

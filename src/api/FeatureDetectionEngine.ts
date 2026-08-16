@@ -10,7 +10,9 @@ export class FeatureDetectionEngine {
         this.implementation = new FeatureDetectionEngineImpl(cv);
     }
 
-    public detect(request: DetectionRequest): DetectionResult {
+    public detect(
+        request: DetectionRequest
+    ): DetectionResult {
         return this.implementation.detect(request);
     }
 }

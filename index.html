@@ -2,26 +2,36 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
     <title>Feature Detection Engine</title>
 </head>
 <body>
     <h1>Feature Detection Engine</h1>
 
     <input
-        id="imageInput"
+        id="image-input"
         type="file"
         accept="image/png,image/jpeg,image/webp"
     >
 
-    <button id="detectButton" type="button" disabled>
-        Detect Features
+    <button
+        id="test-button"
+        type="button"
+        disabled
+    >
+        Test
     </button>
 
-    <p id="status">Choose a map image.</p>
+    <pre id="output">Choose a map image.</pre>
 
-    <canvas id="canvas"></canvas>
+    <canvas id="image-canvas"></canvas>
 
-    <script type="module" src="/src/browser/main.ts"></script>
+    <script
+        type="module"
+        src="/src/browser/main.ts"
+    ></script>
 </body>
 </html>

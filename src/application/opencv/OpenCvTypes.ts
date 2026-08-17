@@ -45,4 +45,12 @@ export interface OpenCvRuntime {
     readonly matFromImageData?: (
         imageData: OpenCvImageData
     ) => OpenCvMat;
+
+    readonly cvtColor?: (
+        source: OpenCvMat,
+        destination: OpenCvMat,
+        code: number
+    ) => void;
+
+    readonly COLOR_RGBA2GRAY?: number;
 }

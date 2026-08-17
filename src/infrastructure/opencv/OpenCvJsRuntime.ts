@@ -17,6 +17,5 @@ function getOpenCvRuntime(): OpenCvRuntime {
 
     return cv;
 }
-
 export const openCvRuntime: OpenCvRuntime =
     getOpenCvRuntime();

@@ -7,15 +7,15 @@ declare global {
 }
 
 function getOpenCvRuntime(): OpenCvRuntime {
-    const cv = window.cv;
-
-    if (cv === undefined) {
-        throw new Error(
-            "OpenCV.js has not finished loading."
-        );
+    if (typeof window !== "undefined" && window.cv !== undefined) {
+        return window.cv;
     }
 
-    return cv;
+    throw new Error(
+        "OpenCV.js runtime is not available. Load OpenCV.js before using the OpenCvJsRuntime."
+    );
 }
-export const openCvRuntime: OpenCvRuntime =
-    getOpenCvRuntime();
+
+export const openCvJsRuntime: OpenCvRuntime = getOpenCvRuntime();
+
+export default openCvJsRuntime;

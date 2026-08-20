@@ -1,108 +1,53 @@
-# 1.2.1
-- fix version
+# Feature Detection Engine Change Log
 
-# 1.2.0
-- add `List.remove`
-- build with LiveScript 1.6.0
-- update dependencies
-- remove coverage calculation
+## Unreleased — August 2026
 
-# 1.1.2
-- add `Func.memoize`
-- fix `zip-all` and `zip-with-all` corner case (no input)
-- build with LiveScript 1.4.0
+### OpenCV.js Browser Integration
+- Added a working OpenCV.js runtime integration.
+- Standardised on `opencv.js@1.2.1`.
+- Confirmed the installed runtime is `node_modules\opencv.js\opencv.js`.
+- Added browser runtime loading through `src/infrastructure/opencv/OpenCvJsRuntime.ts`.
+- Added OpenCV type contracts including `OpenCvMat`, `OpenCvContour`, `OpenCvPoint`, `OpenCvImageData`, and `OpenCvRuntime`.
+- Added RGBA-to-grayscale support through the OpenCV runtime contract.
+- Kept OpenCV types behind the application adapter boundary.
 
-# 1.1.1
-- curry `unique-by`, `minimum-by`
+### Browser Application
+- Confirmed `index.html` as the Vite HTML entry point.
+- Confirmed `src/browser/main.ts` as the browser entry point.
+- Added npm/Vite development workflow.
+- The application can be started with `npm run dev`.
 
-# 1.1.0
-- added `List` functions: `maximum-by`, `minimum-by`, `unique-by`
-- added `List` functions: `at`, `elem-index`, `elem-indices`, `find-index`, `find-indices`
-- added `Str` functions: `capitalize`, `camelize`, `dasherize`
-- added `Func` function: `over` - eg. ``same-length = (==) `over` (.length)``
-- exported `Str.repeat` through main `prelude` object
-- fixed definition of `foldr` and `foldr1`, the new correct definition is backwards incompatible with the old, incorrect one
-- fixed issue with `fix`
-- improved code coverage
+### Testing
+- TypeScript compilation passes with `npx tsc --noEmit`.
+- Full Vitest suite passes: 12 test files and 32 tests.
+- Real OpenCV.js contour integration test passes.
+- Manual browser test with a real golf-course image passes.
+- Browser console produced no OpenCV errors during the manual test.
 
-# 1.0.3
-- build browser versions
+### Current Detection Behaviour
+- The browser application successfully accepts a real golf-course image.
+- Pressing Test runs the detection pipeline successfully.
+- The current Green result is not yet sufficiently accurate: the observed result returned a polygon covering the full `575 x 620` test image with confidence `0.5`.
+- This is now a detector/workflow accuracy problem rather than an OpenCV installation/runtime problem.
 
-# 1.0.2
-- bug fix for `flatten` - slight change with bug fix, flattens arrays only, not array-like objects
+### Workflow Decision
+- Agreed that the preferred user workflow is feature selection followed by an approximate centre click.
+- Bunker workflow: select Bunker once, then click the centre/near-centre of each bunker in sequence.
+- Green workflow: select Green, then make one approximate centre click.
+- The click acts as a seed/location for processing.
+- The new centre-click workflow has not yet been implemented.
 
-# 1.0.1
-- bug fixes for `drop-while` and `take-while`
+## Next Work
 
-# 1.0.0
-* massive update - separated functions into separate modules
-* functions do not accept multiple types anymore - use different versions in their respective modules in some cases (eg. `Obj.map`), or use `chars` or `values` in other cases to transform into a list
-* objects are no longer transformed into functions, simply use `(obj.)` in LiveScript to do that
-* browser version now using browserify - use `prelude = require('prelude-ls')`
-* added `compact`, `split`, `flatten`, `difference`, `intersection`, `union`, `count-by`, `group-by`, `chars`, `unchars`, `apply`
-* added `lists-to-obj` which takes a list of keys and list of values and zips them up into an object, and the converse `obj-to-lists`
-* added `pairs-to-obj` which takes a list of pairs (2 element lists) and creates an object, and the converse `obj-to-pairs`
-* removed `cons`, `append` - use the concat operator
-* removed `compose` - use the compose operator
-* removed `obj-to-func` - use partially applied access (eg. `(obj.)`)
-* removed `length` - use `(.length)`
-* `sort-by` renamed to `sort-with`
-* added new `sort-by`
-* removed `compare` - just use the new `sort-by`
-* `break-it` renamed `break-list`, (`Str.break-str` for the string version)
-* added `Str.repeat` which creates a new string by repeating the input n times
-* `unfold` as alias to `unfoldr` is no longer used
-* fixed up style and compiled with LiveScript 1.1.1
-* use Make instead of Slake
-* greatly improved tests
+1. Inspect the existing browser UI and detection request flow.
+2. Add an image-space seed/location to the detection request without exposing OpenCV types.
+3. Implement user-guided Green detection.
+4. Implement user-guided Bunker detection.
+5. Allow repeated bunker clicks after one Bunker selection.
+6. Add automated tests for seed-based requests and detection.
+7. Add browser/integration tests for the new workflow.
+8. Improve the current Green detector so it does not return the entire image as the green.
 
-# 0.6.0
-* fixed various bugs
-* added `fix`, a fixpoint (Y combinator) for anonymous recursive functions
-* added `unfoldr` (alias `unfold`)
-* calling `replicate` with a string now returns a list of strings
-* removed `partial`, just use native partial application in LiveScript using the `_` placeholder, or currying
-* added `sort`, `sortBy`, and `compare`
+## Historical Note
 
-# 0.5.0
-* removed `lookup` - use (.prop)
-* removed `call` - use (.func arg1, arg2)
-* removed `pluck` - use map (.prop), xs
-* fixed buys wtih `head` and `last`
-* added non-minifed browser version, as `prelude-browser.js`
-* renamed `prelude-min.js` to `prelude-browser-min.js`
-* renamed `zip` to `zipAll`
-* renamed `zipWith` to `zipAllWith`
-* added `zip`, a curried zip that takes only two arguments
-* added `zipWith`, a curried zipWith that takes only two arguments
-
-# 0.4.0
-* added `parition` function
-* added `curry` function
-* removed `elem` function (use `in`)
-* removed `notElem` function (use `not in`)
-
-# 0.3.0
-* added `listToObject`
-* added `unique`
-* added `objToFunc`
-* added support for using strings in map and the like
-* added support for using objects in map and the like
-* added ability to use objects instead of functions in certain cases
-* removed `error` (just use throw)
-* added `tau` constant
-* added `join`
-* added `values`
-* added `keys`
-* added `partial`
-* renamed `log` to `ln`
-* added alias to `head`: `first`
-* added `installPrelude` helper
-
-# 0.2.0
-* removed functions that simply warp operators as you can now use operators as functions in LiveScript
-* `min/max` are now curried and take only 2 arguments
-* added `call`
-
-# 0.1.0
-* initial public release
+The previous contents of this file referenced the unrelated `prelude-ls` project. That history has been superseded for this repository. The FDE project change log above is now the authoritative project history.

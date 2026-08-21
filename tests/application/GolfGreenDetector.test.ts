@@ -1,3 +1,4 @@
+
 import { describe, expect, it } from "vitest";
 import { GolfGreenDetector } from "../../src/application/detectors/GolfGreenDetector";
 import { FeatureType } from "../../src/domain/FeatureType";

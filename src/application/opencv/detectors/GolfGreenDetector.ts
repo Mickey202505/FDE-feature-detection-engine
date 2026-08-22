@@ -1,14 +1,14 @@
-import { Feature } from "../../domain/Feature";
-import { FeatureType } from "../../domain/FeatureType";
-import { Polygon } from "../../domain/Polygon";
-import { WorldPoint } from "../../domain/WorldPoint";
-import type { DetectionRequest } from "../../api/DetectionRequest";
+import { Feature } from "../../../domain/Feature";
+import { FeatureType } from "../../../domain/FeatureType";
+import { Polygon } from "../../../domain/Polygon";
+import { WorldPoint } from "../../../domain/WorldPoint";
+import type { DetectionRequest } from "../../../api/DetectionRequest";
 import type { FeatureDetector } from "./FeatureDetector";
-import type { OpenCvAdapter } from "../opencv/OpenCvAdapter";
+import type { OpenCvAdapter } from "../OpenCvAdapter";
 import type {
     OpenCvContour,
     OpenCvPoint
-} from "../opencv/OpenCvTypes";
+} from "../OpenCvTypes";
 
 export class GolfGreenDetector implements FeatureDetector {
     private readonly openCv: OpenCvAdapter;
@@ -28,8 +28,8 @@ export class GolfGreenDetector implements FeatureDetector {
                     contour.points.length >= 3 &&
                     GolfGreenDetector.containsPoint(
                         contour,
-                        request.seed!.x,
-                        request.seed!.y
+                        request.seed.x,
+                        request.seed.y
                     )
             );
 
@@ -114,6 +114,10 @@ export class GolfGreenDetector implements FeatureDetector {
         ) {
             const current = contour.points[i];
             const previous = contour.points[j];
+
+            if (current === undefined || previous === undefined) {
+                continue;
+            }
 
             const intersects =
                 current.y > y !== previous.y > y &&

@@ -1,4 +1,4 @@
 export { FeatureDetectionEngineImpl } from "./FeatureDetectionEngineImpl";
 export { DetectionPipeline } from "./pipeline/DetectionPipeline";
-export { GolfGreenDetector } from "./detectors/GolfGreenDetector";
-export type { FeatureDetector } from "./detectors/FeatureDetector";
+export { GolfGreenDetector } from "./opencv/detectors/GolfGreenDetector";
+export type { FeatureDetector } from "./opencv/detectors/FeatureDetector";

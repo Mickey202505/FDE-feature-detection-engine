@@ -1,6 +1,6 @@
 import type { DetectionRequest } from "../../api/DetectionRequest";
 import type { Feature } from "../../domain/Feature";
-import type { FeatureDetector } from "../detectors/FeatureDetector";
+import type { FeatureDetector } from "../opencv/detectors/FeatureDetector";
 
 export class DetectionPipeline {
     private readonly detectors: readonly FeatureDetector[];

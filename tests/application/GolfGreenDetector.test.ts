@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GolfGreenDetector } from "../../src/application/detectors/GolfGreenDetector";
+import { GolfGreenDetector } from "../../src/application/opencv/detectors/GolfGreenDetector";
 import { FeatureType } from "../../src/domain/FeatureType";
 import { WorldPoint } from "../../src/domain/WorldPoint";
 import type { OpenCvAdapter } from "../../src/application/opencv/OpenCvAdapter";
@@ -88,8 +88,12 @@ describe("GolfGreenDetector", () => {
         });
 
         expect(result).toHaveLength(1);
-        expect(result[0].type).toBe(FeatureType.Green);
-        expect(result[0].polygon.points).toEqual([
+
+        const selected = result[0];
+
+        expect(selected).toBeDefined();
+        expect(selected?.type).toBe(FeatureType.Green);
+        expect(selected?.polygon.points).toEqual([
             new WorldPoint(60, 10),
             new WorldPoint(90, 10),
             new WorldPoint(90, 40),

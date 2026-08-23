@@ -1,14 +1,14 @@
-import { Feature } from "../../../domain/Feature";
-import { FeatureType } from "../../../domain/FeatureType";
-import { Polygon } from "../../../domain/Polygon";
-import { WorldPoint } from "../../../domain/WorldPoint";
-import type { DetectionRequest } from "../../../api/DetectionRequest";
+import { Feature } from "../../domain/Feature";
+import { FeatureType } from "../../domain/FeatureType";
+import { Polygon } from "../../domain/Polygon";
+import { WorldPoint } from "../../domain/WorldPoint";
+import type { DetectionRequest } from "../../api/DetectionRequest";
 import type { FeatureDetector } from "./FeatureDetector";
-import type { OpenCvAdapter } from "../OpenCvAdapter";
+import type { OpenCvAdapter } from "../opencv/OpenCvAdapter";
 import type {
     OpenCvContour,
     OpenCvPoint
-} from "../OpenCvTypes";
+} from "../opencv/OpenCvTypes";
 
 export class GolfGreenDetector implements FeatureDetector {
     private readonly openCv: OpenCvAdapter;
@@ -28,8 +28,8 @@ export class GolfGreenDetector implements FeatureDetector {
                     contour.points.length >= 3 &&
                     GolfGreenDetector.containsPoint(
                         contour,
-                        request.seed.x,
-                        request.seed.y
+                        request.seed!.x,
+                        request.seed!.y
                     )
             );
 
@@ -105,15 +105,21 @@ export class GolfGreenDetector implements FeatureDetector {
         x: number,
         y: number
     ): boolean {
+        const points = contour.points;
+
+        if (points.length < 3) {
+            return false;
+        }
+
         let inside = false;
 
         for (
-            let i = 0, j = contour.points.length - 1;
-            i < contour.points.length;
+            let i = 0, j = points.length - 1;
+            i < points.length;
             j = i++
         ) {
-            const current = contour.points[i];
-            const previous = contour.points[j];
+            const current = points[i];
+            const previous = points[j];
 
             if (current === undefined || previous === undefined) {
                 continue;

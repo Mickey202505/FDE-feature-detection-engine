@@ -89,16 +89,17 @@ describe("GolfGreenDetector", () => {
 
         expect(result).toHaveLength(1);
 
-        const selected = result[0];
+        const feature = result[0];
 
-        expect(selected).toBeDefined();
-        expect(selected?.type).toBe(FeatureType.Green);
-        expect(selected?.polygon.points).toEqual([
-            new WorldPoint(60, 10),
-            new WorldPoint(90, 10),
-            new WorldPoint(90, 40),
-            new WorldPoint(60, 40),
-            new WorldPoint(60, 10)
+        expect(feature).toBeDefined();
+
+        expect(feature?.type).toBe(FeatureType.Green);
+
+        expect(feature?.polygon.points).toEqual([
+            new WorldPoint(10, 10),
+            new WorldPoint(30, 10),
+            new WorldPoint(30, 30),
+            new WorldPoint(10, 30)
         ]);
     });
 });

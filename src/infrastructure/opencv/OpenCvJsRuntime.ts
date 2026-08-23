@@ -7,7 +7,10 @@ declare global {
 }
 
 function getOpenCvRuntime(): OpenCvRuntime {
-    if (typeof window !== "undefined" && window.cv !== undefined) {
+    if (
+        typeof window !== "undefined" &&
+        window.cv !== undefined
+    ) {
         return window.cv;
     }
 
@@ -16,6 +19,7 @@ function getOpenCvRuntime(): OpenCvRuntime {
     );
 }
 
-export const openCvJsRuntime: OpenCvRuntime = getOpenCvRuntime();
+export const openCvRuntime: OpenCvRuntime =
+    getOpenCvRuntime();
 
-export default openCvJsRuntime;
+export default openCvRuntime;

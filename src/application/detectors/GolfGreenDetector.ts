@@ -20,7 +20,7 @@ export class GolfGreenDetector implements FeatureDetector {
     public detect(
         request: DetectionRequest
     ): readonly Feature[] {
-        const contours = this.openCv.findContours(request.image);
+        const contours = this.openCv.findContours(request.image, request.seed);
 
         if (request.seed !== undefined) {
             const selectedContour = contours.find(

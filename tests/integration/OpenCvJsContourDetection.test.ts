@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import "../setup"; // Execute OpenCV setup before importing runtime
 import { OpenCvImageLoader } from "../../src/OpenCvImageLoader";
 import { OpenCvJsAdapter } from "../../src/application/opencv/OpenCvJsAdapter";
 import { openCvRuntime } from "../../src/infrastructure/opencv/OpenCvJsRuntime";

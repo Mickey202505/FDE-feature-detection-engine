@@ -41,15 +41,22 @@ export interface OpenCvImageData {
 
 export interface OpenCvRuntime {
 
-    readonly Mat: {
-        new (): OpenCvMat;
+readonly Mat: {
+    new (): OpenCvMat;
 
-        ones?(
-            rows: number,
-            cols: number,
-            type: number
-        ): OpenCvMat;
-    };
+    new (
+        rows: number,
+        cols: number,
+        type: number,
+        data?: number[]
+    ): OpenCvMat;
+
+    ones?(
+        rows: number,
+        cols: number,
+        type: number
+    ): OpenCvMat;
+};
 
     readonly MatVector: new () => OpenCvContourCollection;
 

@@ -12,10 +12,10 @@ describe("DetectionPipeline", () => {
 
         const result = pipeline.detect({
             image: {
-    rows: 100,
-    cols: 100,
-    delete: () => undefined
-    },
+                rows: 100,
+                cols: 100,
+                delete: () => undefined
+            },
             metresPerPixel: 0.1
         });
 

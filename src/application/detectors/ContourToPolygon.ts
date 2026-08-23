@@ -1,6 +1,6 @@
-import { Polygon } from "../../../domain/Polygon";
-import { WorldPoint } from "../../../domain/WorldPoint";
-import type { PixelPoint } from "../PixelPoint";
+import { Polygon } from "../../domain/Polygon";
+import { WorldPoint } from "../../domain/WorldPoint";
+import type { PixelPoint } from "../opencv/PixelPoint";
 
 export class ContourToPolygon {
     public convert(

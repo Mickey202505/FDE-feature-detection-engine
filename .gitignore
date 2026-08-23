@@ -19,4 +19,8 @@ function getOpenCvRuntime(): OpenCvRuntime {
 }
 
 export const openCvRuntime: OpenCvRuntime =
-    getOpenCvRuntime();
+    getOpenCvRuntime();  
+# Ignore temp and docx files  
+*.tmp  
+*.docx  
+~$* 

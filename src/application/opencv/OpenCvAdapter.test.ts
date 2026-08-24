@@ -112,18 +112,49 @@ describe("OpenCvJsAdapter", () => {
         let contoursDeleted = false;
         let contourDeleted = false;
 
+        const contour: OpenCvMat = {
+            rows: 1,
+            cols: 2,
+            data32S: new Int32Array([10, 20]),
+            delete: () => {
+                contourDeleted = true;
+            }
+        };
+
         const runtime: OpenCvRuntime = {
-            Mat,
-            MatVector,
+            Mat: class {
+                rows = 0;
+                cols = 0;
+
+                delete() {
+                    hierarchyDeleted = true;
+                }
+            },
+
+            MatVector: class {
+                size() {
+                    return 1;
+                }
+
+                get(_index: number) {
+                    return contour;
+                }
+
+                delete() {
+                    contoursDeleted = true;
+                }
+            },
+
             findContours: (
-                _image: OpenCvMat,
-                _contours: OpenCvContourCollection,
-                _hierarchy: OpenCvMat,
-                _mode: number,
-                _method: number
+                _image,
+                _contours,
+                _hierarchy,
+                _mode,
+                _method
             ) => undefined,
+
             RETR_EXTERNAL: 0,
-            CHAIN_APPROX_SIMPLE: 0,
+            CHAIN_APPROX_SIMPLE: 2,
 
             Size: class {
                 public constructor(
@@ -197,6 +228,7 @@ function createRuntime(
 
             delete() {}
         },
+
         MatVector: class {
             size() {
                 return contours.length;
@@ -208,6 +240,7 @@ function createRuntime(
 
             delete() {}
         },
+
         findContours: options.onFindContours ?? (
             (
                 _image,
@@ -217,7 +250,22 @@ function createRuntime(
                 _method
             ) => undefined
         ),
+
         RETR_EXTERNAL: 0,
-        CHAIN_APPROX_SIMPLE: 2
+        CHAIN_APPROX_SIMPLE: 2,
+
+        Size: class {
+            public constructor(
+                public readonly width: number,
+                public readonly height: number
+            ) {}
+        },
+
+        Point: class {
+            public constructor(
+                public readonly x: number,
+                public readonly y: number
+            ) {}
+        }
     };
 }

@@ -35,13 +35,13 @@ const canvas = canvasElement;
 const testButton = testButtonElement;
 const output = outputElement;
 
-const context = canvas.getContext("2d");
-
-if (context === null) {
-    throw new Error(
-        "Could not get 2D canvas context."
-    );
-}
+const context: CanvasRenderingContext2D =
+    canvas.getContext("2d") ??
+    (() => {
+        throw new Error(
+            "Could not get 2D canvas context."
+        );
+    })();
 
 const imageLoader = new OpenCvImageLoader(
     openCvRuntime

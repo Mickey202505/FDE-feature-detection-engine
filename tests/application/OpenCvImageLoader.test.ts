@@ -44,11 +44,27 @@ function createRuntime(): OpenCvRuntime {
     return {
         Mat: FakeMat,
         MatVector: FakeMatVector,
+
         findContours: () => {
             // No-op for test.
         },
+
         RETR_EXTERNAL: 0,
-        CHAIN_APPROX_SIMPLE: 1
+        CHAIN_APPROX_SIMPLE: 1,
+
+        Size: class {
+            public constructor(
+                public readonly width: number,
+                public readonly height: number
+            ) {}
+        },
+
+        Point: class {
+            public constructor(
+                public readonly x: number,
+                public readonly y: number
+            ) {}
+        }
     };
 }
 
@@ -67,59 +83,84 @@ describe("OpenCvImageLoader", () => {
     it("converts valid image data using OpenCV", () => {
         const mat = new FakeMat();
         const matFromImageData = vi.fn(() => mat);
-        const runtime = createRuntimeWithImageLoader(
-            matFromImageData
-        );
-        const loader = new OpenCvImageLoader(runtime);
+
+        const runtime =
+            createRuntimeWithImageLoader(
+                matFromImageData
+            );
+
+        const loader =
+            new OpenCvImageLoader(runtime);
+
         const image = createImage();
 
-        const result = loader.fromImageData(image);
+        const result =
+            loader.fromImageData(image);
 
         expect(result).toBe(mat);
-        expect(matFromImageData).toHaveBeenCalledWith(image);
+
+        expect(
+            matFromImageData
+        ).toHaveBeenCalledWith(image);
     });
 
     it("rejects non-positive dimensions", () => {
-        const runtime = createRuntimeWithImageLoader(
-            vi.fn()
-        );
-        const loader = new OpenCvImageLoader(runtime);
+        const runtime =
+            createRuntimeWithImageLoader(
+                vi.fn()
+            );
+
+        const loader =
+            new OpenCvImageLoader(runtime);
 
         expect(() =>
             loader.fromImageData({
                 width: 0,
                 height: 2,
-                data: new Uint8ClampedArray(16)
+                data:
+                    new Uint8ClampedArray(16)
             })
-        ).toThrow("Image must have positive dimensions.");
+        ).toThrow(
+            "Image must have positive dimensions."
+        );
     });
 
     it("rejects empty image data", () => {
-        const runtime = createRuntimeWithImageLoader(
-            vi.fn()
-        );
-        const loader = new OpenCvImageLoader(runtime);
+        const runtime =
+            createRuntimeWithImageLoader(
+                vi.fn()
+            );
+
+        const loader =
+            new OpenCvImageLoader(runtime);
 
         expect(() =>
             loader.fromImageData({
                 width: 2,
                 height: 2,
-                data: new Uint8ClampedArray()
+                data:
+                    new Uint8ClampedArray()
             })
-        ).toThrow("Image data must not be empty.");
+        ).toThrow(
+            "Image data must not be empty."
+        );
     });
 
     it("rejects image data with an incorrect length", () => {
-        const runtime = createRuntimeWithImageLoader(
-            vi.fn()
-        );
-        const loader = new OpenCvImageLoader(runtime);
+        const runtime =
+            createRuntimeWithImageLoader(
+                vi.fn()
+            );
+
+        const loader =
+            new OpenCvImageLoader(runtime);
 
         expect(() =>
             loader.fromImageData({
                 width: 2,
                 height: 2,
-                data: new Uint8ClampedArray(12)
+                data:
+                    new Uint8ClampedArray(12)
             })
         ).toThrow(
             "Image data length does not match image dimensions."
@@ -127,11 +168,16 @@ describe("OpenCvImageLoader", () => {
     });
 
     it("rejects runtimes without matFromImageData", () => {
-        const runtime = createRuntime();
-        const loader = new OpenCvImageLoader(runtime);
+        const runtime =
+            createRuntime();
+
+        const loader =
+            new OpenCvImageLoader(runtime);
 
         expect(() =>
-            loader.fromImageData(createImage())
+            loader.fromImageData(
+                createImage()
+            )
         ).toThrow(
             "OpenCV runtime does not support matFromImageData."
         );

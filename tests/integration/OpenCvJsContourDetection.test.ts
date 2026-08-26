@@ -146,6 +146,47 @@ describe("OpenCvJs green detection", () => {
             mat.delete();
         }
     });
+
+    it("does not classify a bright non-green region as a green without a seed", () => {
+        const image = createGreenAndNonGreenTestImage();
+
+        const loader = new OpenCvImageLoader(openCvRuntime);
+        const mat = loader.fromImageData(image);
+
+        try {
+            const adapter = new OpenCvJsAdapter(openCvRuntime);
+            const detector = new GolfGreenDetector(adapter);
+
+            const result = detector.detect({
+                image: mat,
+                metresPerPixel: 1
+            });
+
+            expect(
+                result.some(
+                    (feature) =>
+                        feature.type === FeatureType.Green
+                )
+            ).toBe(true);
+            
+            console.log(
+                "AUTOMATIC GREEN RESULT:",
+                result.map((feature) => ({
+                    type: feature.type,
+                    points: feature.polygon.points.map(
+                        (point) => ({
+                            x: point.x,
+                            y: point.y
+                        })
+                    )
+                }))
+            );
+        
+            expect(result.length).toBe(1);
+        } finally {
+            mat.delete();
+        }
+    });
 });
 
 function createGreenTestImage(): {
@@ -222,6 +263,58 @@ function createVariableGreenTestImage(): {
                 data[index] = 30;
                 data[index + 1] = 30;
                 data[index + 2] = 30;
+                data[index + 3] = 255;
+            }
+        }
+    }
+
+    return {
+        width,
+        height,
+        data
+    };
+}
+
+function createGreenAndNonGreenTestImage(): {
+    width: number;
+    height: number;
+    data: Uint8ClampedArray;
+} {
+    const width = 120;
+    const height = 100;
+
+    const data = new Uint8ClampedArray(
+        width * height * 4
+    );
+
+    for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+            const index = (y * width + x) * 4;
+
+            if (
+                x >= 10 &&
+                x < 50 &&
+                y >= 20 &&
+                y < 80
+            ) {
+                data[index] = 40;
+                data[index + 1] = 160;
+                data[index + 2] = 40;
+                data[index + 3] = 255;
+            } else if (
+                x >= 70 &&
+                x < 110 &&
+                y >= 20 &&
+                y < 80
+            ) {
+                data[index] = 160;
+                data[index + 1] = 160;
+                data[index + 2] = 160;
+                data[index + 3] = 255;
+            } else {
+                data[index] = 20;
+                data[index + 1] = 20;
+                data[index + 2] = 20;
                 data[index + 3] = 255;
             }
         }

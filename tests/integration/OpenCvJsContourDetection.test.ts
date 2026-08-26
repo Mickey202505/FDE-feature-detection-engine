@@ -63,29 +63,18 @@ function createRgbaImage(
         number
     ]
 ): OpenCvMat {
-    /*
-     * CV_8UC4 = CV_8U + ((4 - 1) << 3)
-     *
-     * OpenCV defines this as 24.
-     */
-    const CV_8UC4 = 24;
-
-    const mat =
-        new cv.Mat(
-            height,
-            width,
-            CV_8UC4
-        );
-
     if (
-        mat.ucharPtr === undefined
+        cv.matFromImageData === undefined
     ) {
-        mat.delete();
-
         throw new Error(
-            "OpenCV runtime does not support pixel access."
+            "OpenCV.js runtime does not provide matFromImageData()."
         );
     }
+
+    const data =
+        new Uint8ClampedArray(
+            width * height * 4
+        );
 
     for (
         let y = 0;
@@ -98,19 +87,30 @@ function createRgbaImage(
             x += 1
         ) {
             const pixel =
-                mat.ucharPtr(y, x);
-
-            const values =
                 fill(x, y);
 
-            pixel[0] = values[0];
-            pixel[1] = values[1];
-            pixel[2] = values[2];
-            pixel[3] = values[3];
+            const offset =
+                (y * width + x) * 4;
+
+            data[offset] =
+                pixel[0];
+
+            data[offset + 1] =
+                pixel[1];
+
+            data[offset + 2] =
+                pixel[2];
+
+            data[offset + 3] =
+                pixel[3];
         }
     }
 
-    return mat;
+    return cv.matFromImageData({
+        width,
+        height,
+        data
+    });
 }
 
 function largestContour(

@@ -93,7 +93,11 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
         }
 
         const grayscale = new this.cv.Mat();
-        const binary = new this.cv.Mat();
+        const binary = new this.cv.Mat(
+            image.rows,
+            image.cols,
+            this.cv.CV_8U!
+        );
 
         try {
             this.cv.cvtColor(
@@ -108,10 +112,10 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
              * Use the colour at the user's click as the starting
              * colour and build a mask around that colour.
              *
-             * Importantly, we do NOT use a large morphological
-             * opening or large blur here. Those operations can
-             * move the detected boundary away from the real edge
-             * of the green.
+             * The seed must first be recognised as a green colour.
+             * Otherwise a click on grass-adjacent terrain, sky,
+             * shadow, or another non-green region could cause that
+             * entire region to be returned as a golf green.
              */
             if (seed !== undefined) {
                 if (
@@ -162,6 +166,10 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
                     const r = pixel[0] ?? 0;
                     const g = pixel[1] ?? 0;
                     const b = pixel[2] ?? 0;
+
+                    if (!(g > r && g > b)) {
+                        return binary;
+                    }
 
                     /*
                      * Keep the tolerance deliberately tight.
@@ -348,4 +356,5 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
 
         return points;
     }
+
 }

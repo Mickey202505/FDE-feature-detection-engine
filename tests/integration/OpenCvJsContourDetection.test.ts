@@ -37,6 +37,62 @@ describe("OpenCvJs green detection", () => {
             mat.delete();
         }
     });
+
+    it("does not detect a green when the seed is on non-green pixels", () => {
+        const image = createGreenTestImage();
+
+        const loader = new OpenCvImageLoader(openCvRuntime);
+        const mat = loader.fromImageData(image);
+
+        try {
+            const adapter = new OpenCvJsAdapter(openCvRuntime);
+            const detector = new GolfGreenDetector(adapter);
+
+            const result = detector.detect({
+                image: mat,
+                metresPerPixel: 1,
+                seed: {
+                    x: 10,
+                    y: 10
+                }
+            });
+
+            expect(result).toEqual([]);
+        } finally {
+            mat.delete();
+        }
+    });
+
+    it("detects a green area with modest colour variation", () => {
+        const image = createVariableGreenTestImage();
+
+        const loader = new OpenCvImageLoader(openCvRuntime);
+        const mat = loader.fromImageData(image);
+
+        try {
+            const adapter = new OpenCvJsAdapter(openCvRuntime);
+            const detector = new GolfGreenDetector(adapter);
+
+            const result = detector.detect({
+                image: mat,
+                metresPerPixel: 1,
+                seed: {
+                    x: 50,
+                    y: 50
+                }
+            });
+
+            expect(result).toHaveLength(1);
+
+            const feature = result[0];
+
+            expect(feature).toBeDefined();
+            expect(feature?.type).toBe(FeatureType.Green);
+            expect(feature?.polygon.points.length).toBeGreaterThanOrEqual(4);
+        } finally {
+            mat.delete();
+        }
+    });
 });
 
 function createGreenTestImage(): {
@@ -64,6 +120,57 @@ function createGreenTestImage(): {
                 data[index] = 40;
                 data[index + 1] = 160;
                 data[index + 2] = 40;
+                data[index + 3] = 255;
+            } else {
+                data[index] = 30;
+                data[index + 1] = 30;
+                data[index + 2] = 30;
+                data[index + 3] = 255;
+            }
+        }
+    }
+
+    return {
+        width,
+        height,
+        data
+    };
+}
+
+function createVariableGreenTestImage(): {
+    width: number;
+    height: number;
+    data: Uint8ClampedArray;
+} {
+    const width = 100;
+    const height = 100;
+
+    const data = new Uint8ClampedArray(
+        width * height * 4
+    );
+
+    for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+            const index = (y * width + x) * 4;
+
+            if (
+                x >= 20 &&
+                x < 80 &&
+                y >= 20 &&
+                y < 80
+            ) {
+                const variation =
+                    (x + y) % 3;
+
+                data[index] =
+                    40 + variation * 5;
+
+                data[index + 1] =
+                    160 + variation * 5;
+
+                data[index + 2] =
+                    40 + variation * 5;
+
                 data[index + 3] = 255;
             } else {
                 data[index] = 30;

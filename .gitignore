@@ -24,3 +24,6 @@ export const openCvRuntime: OpenCvRuntime =
 *.tmp  
 *.docx  
 ~$* 
+node_modules/
+.vscode/
+.vite/

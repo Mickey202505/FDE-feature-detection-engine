@@ -18,6 +18,7 @@
     "opencv.js": "^1.2.1"
   },
   "devDependencies": {
+    "@opencvjs/node": "^5.0.0-release.2",
     "@types/node": "^26.1.2",
     "@typescript-eslint/eslint-plugin": "^8.66.0",
     "@typescript-eslint/parser": "^8.66.0",

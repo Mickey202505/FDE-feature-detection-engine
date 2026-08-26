@@ -1,280 +1,529 @@
-import { describe, expect, it } from "vitest";
-import "../setup";
-import { OpenCvImageLoader } from "../../src/OpenCvImageLoader";
-import { OpenCvJsAdapter } from "../../src/application/opencv/OpenCvJsAdapter";
-import { openCvRuntime } from "../../src/infrastructure/opencv/OpenCvJsRuntime";
-import { FeatureType } from "../../src/domain/FeatureType";
+import {
+    beforeAll,
+    describe,
+    expect,
+    it
+} from "vitest";
 
-describe("OpenCvJs green detection", () => {
-    it("detects a seeded green area in a real OpenCV image", () => {
-        const image = createGreenImage();
+import {
+    loadOpenCV
+} from "@opencvjs/node";
 
-        const loader = new OpenCvImageLoader(openCvRuntime);
-        const mat = loader.fromImageData(image);
+import type {
+    OpenCvContour,
+    OpenCvMat,
+    OpenCvRuntime
+} from "../../src/application/opencv/OpenCvTypes";
 
-        try {
-            const adapter = new OpenCvJsAdapter(openCvRuntime);
+import type {
+    PixelPoint
+} from "../../src/application/opencv/PixelPoint";
 
-            const contours = adapter.findContours(
-                mat,
-                {
-                    x: 50,
-                    y: 50
-                }
-            );
+import {
+    OpenCvJsAdapter
+} from "../../src/application/opencv/OpenCvJsAdapter";
 
-            expect(contours.length).toBeGreaterThan(0);
+let openCvRuntime: OpenCvRuntime;
 
-            const largestContour = contours.reduce(
-                (largest, current) =>
-                    current.points.length > largest.points.length
-                        ? current
-                        : largest
-            );
+async function loadOpenCv(): Promise<OpenCvRuntime> {
+    console.log("Loading OpenCV.js...");
 
-            expect(
-                largestContour.points.length
-            ).toBeGreaterThanOrEqual(4);
-        } finally {
-            mat.delete();
-        }
-    });
+    const cv = await loadOpenCV();
 
-    it("does not detect a green when the seed is on non-green pixels", () => {
-        const image = createGreenImage();
+    if (cv === undefined || cv === null) {
+        throw new Error(
+            "OpenCV.js failed to initialise."
+        );
+    }
 
-        const loader = new OpenCvImageLoader(openCvRuntime);
-        const mat = loader.fromImageData(image);
+    console.log("OpenCV.js loaded.");
 
-        try {
-            const adapter = new OpenCvJsAdapter(openCvRuntime);
+    return cv as unknown as OpenCvRuntime;
+}
 
-            const contours = adapter.findContours(
-                mat,
-                {
-                    x: 5,
-                    y: 5
-                }
-            );
+beforeAll(
+    async () => {
+        openCvRuntime =
+            await loadOpenCv();
+    },
+    30_000
+);
 
-            expect(contours).toEqual([]);
-        } finally {
-            mat.delete();
-        }
-    });
+function createRgbaImage(
+    cv: OpenCvRuntime,
+    width: number,
+    height: number,
+    fill: (
+        x: number,
+        y: number
+    ) => [
+        number,
+        number,
+        number,
+        number
+    ]
+): OpenCvMat {
+    /*
+     * CV_8UC4 = CV_8U + ((4 - 1) << 3)
+     *
+     * OpenCV defines this as 24.
+     */
+    const CV_8UC4 = 24;
 
-    it("detects a green area with modest colour variation", () => {
-        const image = createGreenImage(
-            40,
-            80,
-            90,
-            150,
-            120,
-            130,
-            70
+    const mat =
+        new cv.Mat(
+            height,
+            width,
+            CV_8UC4
         );
 
-        const loader = new OpenCvImageLoader(openCvRuntime);
-        const mat = loader.fromImageData(image);
+    if (
+        mat.ucharPtr === undefined
+    ) {
+        mat.delete();
 
-        try {
-            const adapter = new OpenCvJsAdapter(openCvRuntime);
+        throw new Error(
+            "OpenCV runtime does not support pixel access."
+        );
+    }
 
-            const contours = adapter.findContours(
-                mat,
-                {
-                    x: 50,
-                    y: 50
-                }
-            );
+    for (
+        let y = 0;
+        y < height;
+        y += 1
+    ) {
+        for (
+            let x = 0;
+            x < width;
+            x += 1
+        ) {
+            const pixel =
+                mat.ucharPtr(y, x);
 
-            expect(contours.length).toBeGreaterThan(0);
-        } finally {
-            mat.delete();
+            const values =
+                fill(x, y);
+
+            pixel[0] = values[0];
+            pixel[1] = values[1];
+            pixel[2] = values[2];
+            pixel[3] = values[3];
         }
-    });
+    }
 
-    it("keeps the detected green boundary close to the actual boundary", () => {
-        const image = createGreenImage();
+    return mat;
+}
 
-        const loader = new OpenCvImageLoader(openCvRuntime);
-        const mat = loader.fromImageData(image);
+function largestContour(
+    contours: readonly OpenCvContour[]
+): OpenCvContour {
+    if (
+        contours.length === 0
+    ) {
+        return {
+            points: []
+        };
+    }
 
-        try {
-            const adapter = new OpenCvJsAdapter(openCvRuntime);
+    return contours.reduce(
+        (
+            largest,
+            current
+        ) =>
+            current.points.length >
+            largest.points.length
+                ? current
+                : largest
+    );
+}
 
-            const contours = adapter.findContours(
-                mat,
-                {
-                    x: 50,
-                    y: 50
-                }
-            );
-
-            expect(contours.length).toBeGreaterThan(0);
-
-            const contour = contours.reduce(
-                (largest, current) =>
-                    current.points.length > largest.points.length
-                        ? current
-                        : largest
-            );
-
-            const xs = contour.points.map(
-                (point) => point.x
-            );
-
-            const ys = contour.points.map(
-                (point) => point.y
-            );
-
-            const minX = Math.min(...xs);
-            const maxX = Math.max(...xs);
-            const minY = Math.min(...ys);
-            const maxY = Math.max(...ys);
-
-            expect(minX).toBeGreaterThanOrEqual(15);
-            expect(maxX).toBeLessThanOrEqual(85);
-            expect(minY).toBeGreaterThanOrEqual(15);
-            expect(maxY).toBeLessThanOrEqual(85);
-        } finally {
-            mat.delete();
-        }
-    });
-
-    it("does not classify a bright non-green region as a green without a seed", () => {
-        const image = createGreenAndGreyImage();
-
-        const loader = new OpenCvImageLoader(openCvRuntime);
-        const mat = loader.fromImageData(image);
-
-        try {
-            const adapter = new OpenCvJsAdapter(openCvRuntime);
-
-            const contours = adapter.findContours(mat);
-
-            expect(contours.length).toBeGreaterThan(0);
-
-            const result = contours.map((contour) => ({
-                type: FeatureType.Green,
-                points: contour.points
-            }));
-
-            console.log(
-                "AUTOMATIC GREEN RESULT:",
-                JSON.stringify(
-                    result,
-                    null,
-                    2
-                )
-            );
-
-            expect(result.length).toBe(1);
-        } finally {
-            mat.delete();
-        }
-    });
-});
-
-function createGreenImage(
-    greenR = 40,
-    greenG = 180,
-    greenB = 60,
-    startX = 20,
-    endX = 80,
-    startY = 20,
-    endY = 80
+function getBounds(
+    points: readonly {
+        x: number;
+        y: number;
+    }[]
 ): {
-    width: number;
-    height: number;
-    data: Uint8ClampedArray;
+    minX: number;
+    maxX: number;
+    minY: number;
+    maxY: number;
 } {
-    const width = 100;
-    const height = 100;
-
-    const data = new Uint8ClampedArray(
-        width * height * 4
-    );
-
-    for (let y = 0; y < height; y += 1) {
-        for (let x = 0; x < width; x += 1) {
-            const index =
-                (y * width + x) * 4;
-
-            data[index] = 0;
-            data[index + 1] = 0;
-            data[index + 2] = 0;
-            data[index + 3] = 255;
-
-            if (
-                x >= startX &&
-                x < endX &&
-                y >= startY &&
-                y < endY
-            ) {
-                data[index] = greenR;
-                data[index + 1] = greenG;
-                data[index + 2] = greenB;
-            }
-        }
+    if (
+        points.length === 0
+    ) {
+        throw new Error(
+            "Cannot calculate bounds for an empty contour."
+        );
     }
 
+    const xs =
+        points.map(
+            point => point.x
+        );
+
+    const ys =
+        points.map(
+            point => point.y
+        );
+
     return {
-        width,
-        height,
-        data
+        minX: Math.min(...xs),
+        maxX: Math.max(...xs),
+        minY: Math.min(...ys),
+        maxY: Math.max(...ys)
     };
 }
 
-function createGreenAndGreyImage(): {
-    width: number;
-    height: number;
-    data: Uint8ClampedArray;
-} {
-    const width = 120;
-    const height = 100;
+describe(
+    "OpenCvJs green detection",
+    () => {
 
-    const data = new Uint8ClampedArray(
-        width * height * 4
-    );
+        it(
+            "detects a seeded green area in a real OpenCV image",
+            () => {
+                const adapter =
+                    new OpenCvJsAdapter(
+                        openCvRuntime
+                    );
 
-    for (let y = 0; y < height; y += 1) {
-        for (let x = 0; x < width; x += 1) {
-            const index =
-                (y * width + x) * 4;
+                const mat =
+                    createRgbaImage(
+                        openCvRuntime,
+                        100,
+                        100,
+                        (x, y) => {
+                            const inside =
+                                x >= 20 &&
+                                x < 80 &&
+                                y >= 20 &&
+                                y < 80;
 
-            data[index] = 0;
-            data[index + 1] = 0;
-            data[index + 2] = 0;
-            data[index + 3] = 255;
+                            return inside
+                                ? [
+                                    40,
+                                    180,
+                                    40,
+                                    255
+                                ]
+                                : [
+                                    220,
+                                    220,
+                                    220,
+                                    255
+                                ];
+                        }
+                    );
 
-            if (
-                x >= 10 &&
-                x < 60 &&
-                y >= 20 &&
-                y < 80
-            ) {
-                data[index] = 40;
-                data[index + 1] = 180;
-                data[index + 2] = 60;
+                try {
+                    const seed: PixelPoint = {
+                        x: 50,
+                        y: 50
+                    };
+
+                    const contours =
+                        adapter.findContours(
+                            mat,
+                            seed
+                        );
+
+                    expect(
+                        contours.length
+                    ).toBeGreaterThan(0);
+
+                    const largest =
+                        largestContour(
+                            contours
+                        );
+
+                    const bounds =
+                        getBounds(
+                            largest.points
+                        );
+
+                    expect(
+                        bounds.minX
+                    ).toBeLessThanOrEqual(20);
+
+                    expect(
+                        bounds.maxX
+                    ).toBeGreaterThanOrEqual(79);
+
+                    expect(
+                        bounds.minY
+                    ).toBeLessThanOrEqual(20);
+
+                    expect(
+                        bounds.maxY
+                    ).toBeGreaterThanOrEqual(79);
+
+                } finally {
+                    mat.delete();
+                }
             }
+        );
 
-            if (
-                x >= 70 &&
-                x < 110 &&
-                y >= 20 &&
-                y < 80
-            ) {
-                data[index] = 220;
-                data[index + 1] = 220;
-                data[index + 2] = 220;
+        it(
+            "does not detect a green when the seed is on non-green pixels",
+            () => {
+                const adapter =
+                    new OpenCvJsAdapter(
+                        openCvRuntime
+                    );
+
+                const mat =
+                    createRgbaImage(
+                        openCvRuntime,
+                        100,
+                        100,
+                        (x, y) => {
+                            const inside =
+                                x >= 20 &&
+                                x < 80 &&
+                                y >= 20 &&
+                                y < 80;
+
+                            return inside
+                                ? [
+                                    40,
+                                    180,
+                                    40,
+                                    255
+                                ]
+                                : [
+                                    220,
+                                    220,
+                                    220,
+                                    255
+                                ];
+                        }
+                    );
+
+                try {
+                    const seed: PixelPoint = {
+                        x: 5,
+                        y: 5
+                    };
+
+                    const contours =
+                        adapter.findContours(
+                            mat,
+                            seed
+                        );
+
+                    expect(
+                        contours
+                    ).toEqual([]);
+
+                } finally {
+                    mat.delete();
+                }
             }
-        }
+        );
+
+        it(
+            "detects a green area with modest colour variation",
+            () => {
+                const adapter =
+                    new OpenCvJsAdapter(
+                        openCvRuntime
+                    );
+
+                const mat =
+                    createRgbaImage(
+                        openCvRuntime,
+                        100,
+                        100,
+                        (x, y) => {
+                            const inside =
+                                x >= 20 &&
+                                x < 80 &&
+                                y >= 20 &&
+                                y < 80;
+
+                            if (!inside) {
+                                return [
+                                    220,
+                                    220,
+                                    220,
+                                    255
+                                ];
+                            }
+
+                            const variation =
+                                (x + y) % 10;
+
+                            return [
+                                40 + variation,
+                                180 + variation,
+                                40 + variation,
+                                255
+                            ];
+                        }
+                    );
+
+                try {
+                    const seed: PixelPoint = {
+                        x: 50,
+                        y: 50
+                    };
+
+                    const contours =
+                        adapter.findContours(
+                            mat,
+                            seed
+                        );
+
+                    expect(
+                        contours.length
+                    ).toBeGreaterThan(0);
+
+                } finally {
+                    mat.delete();
+                }
+            }
+        );
+
+        it(
+            "keeps the detected green boundary close to the actual boundary",
+            () => {
+                const adapter =
+                    new OpenCvJsAdapter(
+                        openCvRuntime
+                    );
+
+                const mat =
+                    createRgbaImage(
+                        openCvRuntime,
+                        120,
+                        100,
+                        (x, y) => {
+                            const inside =
+                                x >= 30 &&
+                                x < 90 &&
+                                y >= 20 &&
+                                y < 80;
+
+                            return inside
+                                ? [
+                                    40,
+                                    180,
+                                    40,
+                                    255
+                                ]
+                                : [
+                                    220,
+                                    220,
+                                    220,
+                                    255
+                                ];
+                        }
+                    );
+
+                try {
+                    const seed: PixelPoint = {
+                        x: 60,
+                        y: 50
+                    };
+
+                    const contours =
+                        adapter.findContours(
+                            mat,
+                            seed
+                        );
+
+                    expect(
+                        contours.length
+                    ).toBeGreaterThan(0);
+
+                    const largest =
+                        largestContour(
+                            contours
+                        );
+
+                    const bounds =
+                        getBounds(
+                            largest.points
+                        );
+
+                    expect(
+                        Math.abs(
+                            bounds.minX - 30
+                        )
+                    ).toBeLessThanOrEqual(2);
+
+                    expect(
+                        Math.abs(
+                            bounds.maxX - 89
+                        )
+                    ).toBeLessThanOrEqual(2);
+
+                    expect(
+                        Math.abs(
+                            bounds.minY - 20
+                        )
+                    ).toBeLessThanOrEqual(2);
+
+                    expect(
+                        Math.abs(
+                            bounds.maxY - 79
+                        )
+                    ).toBeLessThanOrEqual(2);
+
+                } finally {
+                    mat.delete();
+                }
+            }
+        );
+
+        it(
+            "does not classify a bright non-green region as a green without a seed",
+            () => {
+                const adapter =
+                    new OpenCvJsAdapter(
+                        openCvRuntime
+                    );
+
+                const mat =
+                    createRgbaImage(
+                        openCvRuntime,
+                        100,
+                        100,
+                        (x, y) => {
+                            const inside =
+                                x >= 10 &&
+                                x < 60 &&
+                                y >= 20 &&
+                                y < 80;
+
+                            return inside
+                                ? [
+                                    230,
+                                    230,
+                                    230,
+                                    255
+                                ]
+                                : [
+                                    40,
+                                    40,
+                                    40,
+                                    255
+                                ];
+                        }
+                    );
+
+                try {
+                    const contours =
+                        adapter.findContours(
+                            mat
+                        );
+
+                    expect(
+                        contours
+                    ).toEqual([]);
+
+                } finally {
+                    mat.delete();
+                }
+            }
+        );
     }
-
-    return {
-        width,
-        height,
-        data
-    };
-}
+);

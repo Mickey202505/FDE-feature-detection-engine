@@ -5,18 +5,14 @@ import type {
 } from "./OpenCvTypes";
 
 import type { PixelPoint } from "./PixelPoint";
-
-export interface OpenCvAdapter {
-    findContours(
-        image: OpenCvMat,
-        seed?: PixelPoint
-    ): readonly OpenCvContour[];
-}
+import type { OpenCvAdapter } from "./OpenCvAdapter";
 
 export class OpenCvJsAdapter implements OpenCvAdapter {
     private readonly cv: OpenCvRuntime;
 
-    public constructor(cv: OpenCvRuntime) {
+    public constructor(
+        cv: OpenCvRuntime
+    ) {
         this.cv = cv;
     }
 
@@ -26,17 +22,30 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
     ): readonly OpenCvContour[] {
         this.validateImage(image);
 
-        const contours = new this.cv.MatVector();
-        const hierarchy = new this.cv.Mat();
+        const contours =
+            new this.cv.MatVector();
 
-        let workingImage: OpenCvMat = image;
-        let binaryImage: OpenCvMat | undefined;
+        const hierarchy =
+            new this.cv.Mat();
+
+        let workingImage:
+            OpenCvMat = image;
+
+        let binaryImage:
+            OpenCvMat | undefined;
 
         try {
-            binaryImage = this.createBinaryImage(image, seed);
+            binaryImage =
+                this.createBinaryImage(
+                    image,
+                    seed
+                );
 
-            if (binaryImage !== undefined) {
-                workingImage = binaryImage;
+            if (
+                binaryImage !== undefined
+            ) {
+                workingImage =
+                    binaryImage;
             }
 
             this.cv.findContours(
@@ -47,14 +56,25 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
                 this.cv.CHAIN_APPROX_SIMPLE
             );
 
-            const result: OpenCvContour[] = [];
+            const result:
+                OpenCvContour[] = [];
 
-            for (let i = 0; i < contours.size(); i += 1) {
-                const contour = contours.get(i);
-                const approx = new this.cv.Mat();
+            for (
+                let i = 0;
+                i < contours.size();
+                i += 1
+            ) {
+                const contour =
+                    contours.get(i);
+
+                const approx =
+                    new this.cv.Mat();
 
                 try {
-                    if (this.cv.approxPolyDP !== undefined) {
+                    if (
+                        this.cv.approxPolyDP !==
+                        undefined
+                    ) {
                         this.cv.approxPolyDP(
                             contour,
                             approx,
@@ -63,11 +83,17 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
                         );
 
                         result.push({
-                            points: this.readPoints(approx)
+                            points:
+                                this.readPoints(
+                                    approx
+                                )
                         });
                     } else {
                         result.push({
-                            points: this.readPoints(contour)
+                            points:
+                                this.readPoints(
+                                    contour
+                                )
                         });
                     }
                 } finally {
@@ -78,7 +104,10 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
 
             return result;
         } finally {
-            if (binaryImage !== undefined) {
+            if (
+                binaryImage !==
+                undefined
+            ) {
                 binaryImage.delete();
             }
 
@@ -91,227 +120,286 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
         image: OpenCvMat,
         seed?: PixelPoint
     ): OpenCvMat | undefined {
+        /*
+         * We deliberately do NOT use cvtColor() here.
+         *
+         * The @opencvjs/node runtime currently aborts when
+         * cvtColor() is called with the RGBA Mat created by
+         * the integration test.
+         *
+         * The detector only needs the R/G/B channels, so we
+         * can safely inspect the RGBA pixels directly.
+         */
+
         if (
-            this.cv.cvtColor === undefined ||
-            this.cv.COLOR_RGBA2RGB === undefined ||
-            this.cv.inRange === undefined ||
-            this.cv.getStructuringElement === undefined ||
-            this.cv.morphologyEx === undefined ||
-            this.cv.MORPH_ELLIPSE === undefined ||
-            this.cv.MORPH_CLOSE === undefined
+            this.cv.getStructuringElement ===
+                undefined ||
+            this.cv.morphologyEx ===
+                undefined ||
+            this.cv.MORPH_ELLIPSE ===
+                undefined ||
+            this.cv.MORPH_CLOSE ===
+                undefined ||
+            this.cv.CV_8U ===
+                undefined
         ) {
             return undefined;
         }
 
-        const binary = new this.cv.Mat(
-            image.rows,
-            image.cols,
-            this.cv.CV_8U!
-        );
+        const binary =
+            new this.cv.Mat(
+                image.rows,
+                image.cols,
+                this.cv.CV_8U
+            );
 
         try {
-            const rgb = new this.cv.Mat();
-
-            try {
-                this.cv.cvtColor(
-                    image,
-                    rgb,
-                    this.cv.COLOR_RGBA2RGB
-                );
-
-                if (seed !== undefined) {
-                    return this.createSeededGreenMask(
-                        rgb,
+            if (
+                seed !== undefined
+            ) {
+                return this
+                    .createSeededGreenMaskFromRgba(
+                        image,
                         binary,
                         seed
                     );
-                }
+            }
 
-                return this.createAutomaticGreenMask(
-                    rgb,
+            return this
+                .createAutomaticGreenMaskFromRgba(
+                    image,
                     binary
                 );
-            } finally {
-                rgb.delete();
-            }
         } catch (error) {
             binary.delete();
             throw error;
         }
     }
 
-    private createSeededGreenMask(
-        rgb: OpenCvMat,
+    private createSeededGreenMaskFromRgba(
+        image: OpenCvMat,
         binary: OpenCvMat,
         seed: PixelPoint
     ): OpenCvMat {
-        const seedX = Math.round(seed.x);
-        const seedY = Math.round(seed.y);
+        const seedX =
+            Math.round(seed.x);
+
+        const seedY =
+            Math.round(seed.y);
 
         if (
             seedX < 0 ||
-            seedX >= rgb.cols ||
+            seedX >= image.cols ||
             seedY < 0 ||
-            seedY >= rgb.rows
+            seedY >= image.rows
         ) {
             throw new Error(
                 "Seed point is outside the image."
             );
         }
 
-        if (rgb.ucharPtr === undefined) {
+        if (
+            image.ucharPtr ===
+            undefined
+        ) {
             throw new Error(
                 "OpenCV runtime does not support pixel access."
             );
         }
 
-        const pixel = rgb.ucharPtr(
-            seedY,
-            seedX
-        );
-
-        const r = pixel[0] ?? 0;
-        const g = pixel[1] ?? 0;
-        const b = pixel[2] ?? 0;
+        const seedPixel =
+            image.ucharPtr(
+                seedY,
+                seedX
+            );
 
         /*
-         * A seed is only valid when the selected pixel is
-         * actually green.
+         * The integration test creates the RGBA Mat with:
          *
-         * This is deliberately stricter than simply checking
-         * brightness. A white, grey, sand or other bright pixel
-         * must not create a green contour.
+         *   pixel[0] = R
+         *   pixel[1] = G
+         *   pixel[2] = B
+         *   pixel[3] = A
          */
-        if (!(g > r && g > b)) {
+        const seedR =
+            seedPixel[0] ?? 0;
+
+        const seedG =
+            seedPixel[1] ?? 0;
+
+        const seedB =
+            seedPixel[2] ?? 0;
+
+        /*
+         * A supplied seed must actually be green.
+         *
+         * This prevents a seed on grey, white, black, or
+         * another non-green area from producing a contour.
+         */
+        if (
+            seedG <= seedR ||
+            seedG <= seedB ||
+            seedG -
+                Math.max(
+                    seedR,
+                    seedB
+                ) < 10
+        ) {
             return binary;
         }
 
         /*
-         * Keep the seeded tolerance reasonably tight so that
-         * the selected region remains close to the seed colour.
+         * Allow modest variation from the seed colour.
          */
-        const tolerance = 20;
+        const tolerance = 30;
 
-        const lowerBound = new this.cv.Mat(
-            rgb.rows,
-            rgb.cols,
-            rgb.type!(),
-            [
-                Math.max(0, r - tolerance),
-                Math.max(0, g - tolerance),
-                Math.max(0, b - tolerance),
-                0
-            ]
-        );
+        for (
+            let y = 0;
+            y < image.rows;
+            y += 1
+        ) {
+            for (
+                let x = 0;
+                x < image.cols;
+                x += 1
+            ) {
+                const pixel =
+                    image.ucharPtr(
+                        y,
+                        x
+                    );
 
-        const upperBound = new this.cv.Mat(
-            rgb.rows,
-            rgb.cols,
-            rgb.type!(),
-            [
-                Math.min(255, r + tolerance),
-                Math.min(255, g + tolerance),
-                Math.min(255, b + tolerance),
-                255
-            ]
-        );
+                const r =
+                    pixel[0] ?? 0;
 
-        try {
-            /*
-             * createBinaryImage has already verified that
-             * inRange exists, but TypeScript does not retain
-             * that narrowing across this method boundary.
-             */
-            const inRange = this.cv.inRange;
+                const g =
+                    pixel[1] ?? 0;
 
-            if (inRange === undefined) {
-                throw new Error(
-                    "OpenCV runtime does not support inRange."
-                );
+                const b =
+                    pixel[2] ?? 0;
+
+                const matches =
+                    Math.abs(
+                        r - seedR
+                    ) <= tolerance &&
+                    Math.abs(
+                        g - seedG
+                    ) <= tolerance &&
+                    Math.abs(
+                        b - seedB
+                    ) <= tolerance;
+
+                const output =
+                    binary.ucharPtr?.(
+                        y,
+                        x
+                    );
+
+                if (
+                    output !==
+                    undefined
+                ) {
+                    output[0] =
+                        matches
+                            ? 255
+                            : 0;
+                }
             }
-
-            inRange(
-                rgb,
-                lowerBound,
-                upperBound,
-                binary
-            );
-        } finally {
-            lowerBound.delete();
-            upperBound.delete();
         }
 
-        this.closeMask(binary);
+        this.closeMask(
+            binary
+        );
 
         return binary;
     }
 
-    private createAutomaticGreenMask(
-        rgb: OpenCvMat,
+    private createAutomaticGreenMaskFromRgba(
+        image: OpenCvMat,
         binary: OpenCvMat
     ): OpenCvMat {
-        if (rgb.ucharPtr === undefined) {
+        if (
+            image.ucharPtr ===
+            undefined
+        ) {
             throw new Error(
                 "OpenCV runtime does not support pixel access."
+            );
+        }
+
+        if (
+            binary.ucharPtr ===
+            undefined
+        ) {
+            throw new Error(
+                "OpenCV runtime does not support binary pixel access."
             );
         }
 
         /*
-         * Automatic detection is colour-based.
+         * Automatic green detection.
          *
-         * A grayscale threshold would also detect bright grey,
-         * white, sand, concrete, sky, etc.
+         * A pixel is considered green when:
          *
-         * Require green to be meaningfully stronger than both
-         * red and blue.
+         *   G >= 50
+         *   G is at least 10 greater than R/B
+         *
+         * This rejects neutral grey/white regions while
+         * allowing modest variation in green imagery.
          */
-        const data = new Uint8Array(
-            rgb.rows * rgb.cols
-        );
+        for (
+            let y = 0;
+            y < image.rows;
+            y += 1
+        ) {
+            for (
+                let x = 0;
+                x < image.cols;
+                x += 1
+            ) {
+                const pixel =
+                    image.ucharPtr(
+                        y,
+                        x
+                    );
 
-        for (let y = 0; y < rgb.rows; y += 1) {
-            for (let x = 0; x < rgb.cols; x += 1) {
-                const pixel = rgb.ucharPtr(
-                    y,
-                    x
-                );
+                const r =
+                    pixel[0] ?? 0;
 
-                const r = pixel[0] ?? 0;
-                const g = pixel[1] ?? 0;
-                const b = pixel[2] ?? 0;
+                const g =
+                    pixel[1] ?? 0;
+
+                const b =
+                    pixel[2] ?? 0;
 
                 const greenDominance =
-                    g - Math.max(r, b);
+                    g -
+                    Math.max(
+                        r,
+                        b
+                    );
 
                 const isGreen =
-                    g >= 60 &&
-                    greenDominance >= 20;
+                    g >= 50 &&
+                    greenDominance >=
+                        10;
 
-                data[
-                    y * rgb.cols + x
-                ] = isGreen ? 255 : 0;
+                const output =
+                    binary.ucharPtr(
+                        y,
+                        x
+                    );
+
+                output[0] =
+                    isGreen
+                        ? 255
+                        : 0;
             }
         }
 
-        if (binary.ucharPtr === undefined) {
-            throw new Error(
-                "OpenCV runtime does not support pixel access."
-            );
-        }
-
-        for (let y = 0; y < rgb.rows; y += 1) {
-            for (let x = 0; x < rgb.cols; x += 1) {
-                const pixel = binary.ucharPtr(
-                    y,
-                    x
-                );
-
-                pixel[0] =
-                    data[y * rgb.cols + x] ?? 0;
-            }
-        }
-
-        this.closeMask(binary);
+        this.closeMask(
+            binary
+        );
 
         return binary;
     }
@@ -319,38 +407,33 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
     private closeMask(
         binary: OpenCvMat
     ): void {
-        const getStructuringElement =
-            this.cv.getStructuringElement;
-
-        const morphologyEx =
-            this.cv.morphologyEx;
-
-        const morphEllipse =
-            this.cv.MORPH_ELLIPSE;
-
-        const morphClose =
-            this.cv.MORPH_CLOSE;
-
         if (
-            getStructuringElement === undefined ||
-            morphologyEx === undefined ||
-            morphEllipse === undefined ||
-            morphClose === undefined
+            this.cv.getStructuringElement ===
+                undefined ||
+            this.cv.morphologyEx ===
+                undefined ||
+            this.cv.MORPH_ELLIPSE ===
+                undefined ||
+            this.cv.MORPH_CLOSE ===
+                undefined
         ) {
             return;
         }
 
         const kernel =
-            getStructuringElement(
-                morphEllipse,
-                new this.cv.Size(3, 3)
+            this.cv.getStructuringElement(
+                this.cv.MORPH_ELLIPSE,
+                new this.cv.Size(
+                    3,
+                    3
+                )
             );
 
         try {
-            morphologyEx(
+            this.cv.morphologyEx(
                 binary,
                 binary,
-                morphClose,
+                this.cv.MORPH_CLOSE,
                 kernel
             );
         } finally {
@@ -392,8 +475,10 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
             i += 2
         ) {
             points.push({
-                x: data[i] ?? 0,
-                y: data[i + 1] ?? 0
+                x:
+                    data[i] ?? 0,
+                y:
+                    data[i + 1] ?? 0
             });
         }
 

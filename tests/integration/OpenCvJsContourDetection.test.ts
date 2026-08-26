@@ -93,6 +93,59 @@ describe("OpenCvJs green detection", () => {
             mat.delete();
         }
     });
+
+    it("keeps the detected green boundary close to the actual boundary", () => {
+        const image = createGreenTestImage();
+
+        const loader = new OpenCvImageLoader(openCvRuntime);
+        const mat = loader.fromImageData(image);
+
+        try {
+            const adapter = new OpenCvJsAdapter(openCvRuntime);
+            const detector = new GolfGreenDetector(adapter);
+
+            const result = detector.detect({
+                image: mat,
+                metresPerPixel: 1,
+                seed: {
+                    x: 50,
+                    y: 50
+                }
+            });
+
+            expect(result).toHaveLength(1);
+
+            const feature = result[0];
+
+            expect(feature).toBeDefined();
+
+            const points = feature?.polygon.points ?? [];
+
+            expect(points.length).toBeGreaterThanOrEqual(4);
+
+            const xs = points.map((point) => point.x);
+            const ys = points.map((point) => point.y);
+
+            const minX = Math.min(...xs);
+            const maxX = Math.max(...xs);
+            const minY = Math.min(...ys);
+            const maxY = Math.max(...ys);
+
+            expect(minX).toBeGreaterThanOrEqual(19);
+            expect(minX).toBeLessThanOrEqual(21);
+
+            expect(maxX).toBeGreaterThanOrEqual(78);
+            expect(maxX).toBeLessThanOrEqual(80);
+
+            expect(minY).toBeGreaterThanOrEqual(19);
+            expect(minY).toBeLessThanOrEqual(21);
+
+            expect(maxY).toBeGreaterThanOrEqual(78);
+            expect(maxY).toBeLessThanOrEqual(80);
+        } finally {
+            mat.delete();
+        }
+    });
 });
 
 function createGreenTestImage(): {
@@ -159,18 +212,11 @@ function createVariableGreenTestImage(): {
                 y >= 20 &&
                 y < 80
             ) {
-                const variation =
-                    (x + y) % 3;
+                const variation = (x + y) % 3;
 
-                data[index] =
-                    40 + variation * 5;
-
-                data[index + 1] =
-                    160 + variation * 5;
-
-                data[index + 2] =
-                    40 + variation * 5;
-
+                data[index] = 40 + variation * 5;
+                data[index + 1] = 160 + variation * 5;
+                data[index + 2] = 40 + variation * 5;
                 data[index + 3] = 255;
             } else {
                 data[index] = 30;

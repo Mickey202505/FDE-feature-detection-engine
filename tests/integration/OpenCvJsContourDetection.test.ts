@@ -233,15 +233,7 @@ describe(
                         largestContour(
                             contours
                         );
-
-                    console.log(
-                        "DIAGNOSTIC contour:",
-                        {
-                            pointCount: largest.points.length,
-                            points: largest.points
-                        }
-                    );
-
+                    
                     const bounds =
                         getBounds(
                             largest.points

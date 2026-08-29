@@ -1,17 +1,25 @@
-@'
 const fs = require("node:fs");
 const { PNG } = require("pngjs");
 const cvModule = require("@opencvjs/node");
 
 async function main() {
+    console.log("Loading OpenCV...");
     const cv = await cvModule.loadOpenCV();
+    console.log("OpenCV loaded.");
 
     const maskPath =
         "C:\\Users\\Mickey\\Downloads\\hole-2-rgb30-cleaned.png";
 
+    console.log("Loading mask:", maskPath);
+
     const png = PNG.sync.read(
         fs.readFileSync(maskPath)
     );
+
+    console.log("Mask:", {
+        width: png.width,
+        height: png.height
+    });
 
     const mask = cv.matFromImageData({
         width: png.width,
@@ -38,13 +46,20 @@ async function main() {
         cv.CHAIN_APPROX_SIMPLE
     );
 
-    console.log("Contours:", contours.size());
+    console.log(
+        "Contours:",
+        contours.size()
+    );
 
     for (const epsilon of [3, 4, 5, 7]) {
         let largestIndex = 0;
         let largestPoints = 0;
 
-        for (let i = 0; i < contours.size(); i++) {
+        for (
+            let i = 0;
+            i < contours.size();
+            i++
+        ) {
             const c = contours.get(i);
 
             try {
@@ -98,15 +113,20 @@ async function main() {
                 maxY = Math.max(maxY, y);
             }
 
-            console.log(`epsilon ${epsilon}:`, {
-                points: data.length / 2,
-                minX,
-                minY,
-                maxX,
-                maxY,
-                width: maxX - minX + 1,
-                height: maxY - minY + 1
-            });
+            console.log(
+                `epsilon ${epsilon}:`,
+                {
+                    points: data.length / 2,
+                    minX,
+                    minY,
+                    maxX,
+                    maxY,
+                    width:
+                        maxX - minX + 1,
+                    height:
+                        maxY - minY + 1
+                }
+            );
         } finally {
             approx.delete();
             contour.delete();
@@ -117,7 +137,13 @@ async function main() {
     contours.delete();
     gray.delete();
     mask.delete();
+
+    console.log(
+        "Contour bounds experiment complete."
+    );
 }
 
-main().catch(console.error);
-'@ | Set-Content contour-bounds.cjs
+main().catch(error => {
+    console.error(error);
+    process.exit(1);
+});

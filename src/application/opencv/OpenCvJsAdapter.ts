@@ -9,6 +9,9 @@ import type { OpenCvAdapter } from "./OpenCvAdapter";
 
 export class OpenCvJsAdapter implements OpenCvAdapter {
     private readonly cv: OpenCvRuntime;
+    private static readonly HUE_TOLERANCE = 20;
+    private static readonly SATURATION_TOLERANCE = 20;
+    private static readonly VALUE_TOLERANCE = 20;
 
     public constructor(cv: OpenCvRuntime) {
         this.cv = cv;
@@ -119,7 +122,7 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
                         this.cv.approxPolyDP(
                             contour,
                             approx,
-                            1.0,
+                            4.0,
                             true
                         );
 
@@ -283,183 +286,497 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
     }
 
     private createSeededMask(
-        image: OpenCvMat,
-        binary: OpenCvMat,
-        seed: PixelPoint
-    ): void {
-        if (
-            image.ucharPtr ===
-            undefined ||
-            binary.ucharPtr ===
-            undefined
-        ) {
-            return;
+    image: OpenCvMat,
+    binary: OpenCvMat,
+    seed: PixelPoint
+): void {
+    if (
+        image.ucharPtr ===
+        undefined ||
+        binary.ucharPtr ===
+        undefined
+    ) {
+        return;
+    }
+
+    const seedX =
+        Math.round(seed.x);
+
+    const seedY =
+        Math.round(seed.y);
+
+    if (
+        seedX < 0 ||
+        seedX >= image.cols ||
+        seedY < 0 ||
+        seedY >= image.rows
+    ) {
+        throw new Error(
+            "Seed point is outside the image."
+        );
+    }
+
+    const seedPixel =
+        image.ucharPtr(
+            seedY,
+            seedX
+        );
+
+    const seedRgb = {
+        r: seedPixel[0] ?? 0,
+        g: seedPixel[1] ?? 0,
+        b: seedPixel[2] ?? 0
+    };
+
+    const seedHsv =
+        this.rgbToOpenCvHsv(
+            seedRgb.r,
+            seedRgb.g,
+            seedRgb.b
+        );
+
+    console.log(
+        "OpenCvJsAdapter seed HSV:",
+        {
+            h: seedHsv.h.toFixed(1),
+            s: seedHsv.s.toFixed(1),
+            v: seedHsv.v.toFixed(1)
         }
+    );
 
-        const seedX =
-            Math.round(seed.x);
+    /*
+     * The seed must actually look green.
+     */
+    const seedGreenDominance =
+        seedRgb.g -
+        Math.max(
+            seedRgb.r,
+            seedRgb.b
+        );
 
-        const seedY =
-            Math.round(seed.y);
+    if (
+        seedRgb.g < 50 ||
+        seedGreenDominance < 10
+    ) {
+        this.clearMask(binary);
+        return;
+    }
 
-        if (
-            seedX < 0 ||
-            seedX >= image.cols ||
-            seedY < 0 ||
-            seedY >= image.rows
-        ) {
-            throw new Error(
-                "Seed point is outside the image."
-            );
-        }
+    /*
+     * First build the HSV mask.
+     *
+     * These values correspond to the best real-image
+     * experiment:
+     *
+     *     H ±20
+     *     S ±20
+     *     V ±20
+     *
+     * OpenCV-style HSV ranges:
+     *
+     *     H = 0..180
+     *     S = 0..255
+     *     V = 0..255
+     */
+    const hueTolerance =
+        OpenCvJsAdapter.HUE_TOLERANCE;
 
-        /*
-         * The input is RGBA:
-         *
-         *   pixel[0] = R
-         *   pixel[1] = G
-         *   pixel[2] = B
-         *   pixel[3] = A
-         */
-        const seedPixel =
-            image.ucharPtr(
-                seedY,
-                seedX
-            );
+    const saturationTolerance =
+        OpenCvJsAdapter.SATURATION_TOLERANCE;
 
-        const seedR =
-            seedPixel[0] ?? 0;
+    const valueTolerance =
+        OpenCvJsAdapter.VALUE_TOLERANCE;
 
-        const seedG =
-            seedPixel[1] ?? 0;
+    const hueMin =
+        seedHsv.h -
+        hueTolerance;
 
-        const seedB =
-            seedPixel[2] ?? 0;
+    const hueMax =
+        seedHsv.h +
+        hueTolerance;
 
-        /*
-         * A seed is only accepted when the actual seed pixel
-         * is green.
-         */
-        const seedDominance =
-            seedG -
-            Math.max(
-                seedR,
-                seedB
-            );
+    const saturationMin =
+        Math.max(
+            0,
+            seedHsv.s -
+                saturationTolerance
+        );
 
-        const seedIsGreen =
-            seedG >= 50 &&
-            seedDominance >= 10;
+    const saturationMax =
+        Math.min(
+            255,
+            seedHsv.s +
+                saturationTolerance
+        );
 
-        if (
-            !seedIsGreen
-        ) {
-            this.clearMask(
-                binary
-            );
+    const valueMin =
+        Math.max(
+            0,
+            seedHsv.v -
+                valueTolerance
+        );
 
-            return;
-        }
+    const valueMax =
+        Math.min(
+            255,
+            seedHsv.v +
+                valueTolerance
+        );
 
-        /*
-         * Use a modest tolerance around the sampled colour.
-         */
-        const tolerance = 30;
-
-        const lowerR =
-            Math.max(
-                0,
-                seedR - tolerance
-            );
-
-        const lowerG =
-            Math.max(
-                0,
-                seedG - tolerance
-            );
-
-        const lowerB =
-            Math.max(
-                0,
-                seedB - tolerance
-            );
-
-        const upperR =
-            Math.min(
-                255,
-                seedR + tolerance
-            );
-
-        const upperG =
-            Math.min(
-                255,
-                seedG + tolerance
-            );
-
-        const upperB =
-            Math.min(
-                255,
-                seedB + tolerance
-            );
-
+    /*
+     * Build the mask directly from the image pixels.
+     *
+     * We deliberately do not use cvtColor() or inRange()
+     * because the Node OpenCV.js runtime has previously
+     * shown instability with those operations.
+     */
+    for (
+        let y = 0;
+        y < image.rows;
+        y += 1
+    ) {
         for (
-            let y = 0;
-            y < image.rows;
-            y += 1
+            let x = 0;
+            x < image.cols;
+            x += 1
         ) {
-            for (
-                let x = 0;
-                x < image.cols;
-                x += 1
-            ) {
-                const pixel =
-                    image.ucharPtr(
-                        y,
-                        x
-                    );
+            const pixel =
+                image.ucharPtr(
+                    y,
+                    x
+                );
 
-                const r =
-                    pixel[0] ?? 0;
+            const r =
+                pixel[0] ?? 0;
 
-                const g =
-                    pixel[1] ?? 0;
+            const g =
+                pixel[1] ?? 0;
 
-                const b =
-                    pixel[2] ?? 0;
+            const b =
+                pixel[2] ?? 0;
 
-                const insideColourRange =
-                    r >= lowerR &&
-                    r <= upperR &&
-                    g >= lowerG &&
-                    g <= upperG &&
-                    b >= lowerB &&
-                    b <= upperB;
+            const hsv =
+                this.rgbToOpenCvHsv(
+                    r,
+                    g,
+                    b
+                );
 
-                const greenDominance =
-                    g -
-                    Math.max(
-                        r,
-                        b
-                    );
+            /*
+             * Handle hue normally for this green seed.
+             *
+             * The seed hue is around 95, so there is no
+             * 0/180 wrap-around involved for this image.
+             */
+            const hueMatches =
+                hsv.h >= hueMin &&
+                hsv.h <= hueMax;
 
-                const isGreen =
-                    insideColourRange &&
-                    g >= 50 &&
-                    greenDominance >= 10;
+            const saturationMatches =
+                hsv.s >= saturationMin &&
+                hsv.s <= saturationMax;
 
-                const output =
-                    binary.ucharPtr(
-                        y,
-                        x
-                    );
+            const valueMatches =
+                hsv.v >= valueMin &&
+                hsv.v <= valueMax;
 
-                output[0] =
-                    isGreen
-                        ? 255
-                        : 0;
-            }
+            /*
+             * Keep the existing green safety check.
+             * This prevents neutral grey/black/white pixels
+             * from entering simply because their HSV values
+             * happen to be close.
+             */
+            const greenDominance =
+                g -
+                Math.max(
+                    r,
+                    b
+                );
+
+            const isGreen =
+                g >= 50 &&
+                greenDominance >= 10;
+
+            const output =
+                binary.ucharPtr(
+                    y,
+                    x
+                );
+
+            output[0] =
+                hueMatches &&
+                saturationMatches &&
+                valueMatches &&
+                isGreen
+                    ? 255
+                    : 0;
         }
     }
+
+    /*
+     * Keep only the connected component containing the seed.
+     *
+     * This is important because the HSV mask may contain
+     * other areas elsewhere in the image with similar colour.
+     */
+    const totalPixels =
+        image.rows *
+        image.cols;
+
+    const visited =
+        new Uint8Array(
+            totalPixels
+        );
+
+    const queue: number[] = [];
+
+    const seedIndex =
+        seedY *
+            image.cols +
+        seedX;
+
+    /*
+     * If the seed somehow wasn't included in the mask,
+     * return an empty mask.
+     */
+    if (
+        (binary.ucharPtr(
+            seedY,
+            seedX
+        )[0] ?? 0) === 0
+    ) {
+        this.clearMask(binary);
+        return;
+    }
+
+    queue.push(seedIndex);
+    visited[seedIndex] = 1;
+
+    const directions = [
+        { x: 1, y: 0 },
+        { x: -1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 0, y: -1 }
+    ];
+
+    let queueIndex = 0;
+
+    while (
+        queueIndex <
+        queue.length
+    ) {
+        const currentIndex =
+            queue[queueIndex++];
+
+        if (
+            currentIndex ===
+            undefined
+        ) {
+            continue;
+        }
+
+        const currentY =
+            Math.floor(
+                currentIndex /
+                    image.cols
+            );
+
+        const currentX =
+            currentIndex %
+            image.cols;
+
+        for (
+            const direction of
+                directions
+        ) {
+            const x =
+                currentX +
+                direction.x;
+
+            const y =
+                currentY +
+                direction.y;
+
+            if (
+                x < 0 ||
+                x >= image.cols ||
+                y < 0 ||
+                y >= image.rows
+            ) {
+                continue;
+            }
+
+            const index =
+                y *
+                    image.cols +
+                x;
+
+            if (
+                visited[index] === 1
+            ) {
+                continue;
+            }
+
+            visited[index] = 1;
+
+            const pixel =
+                binary.ucharPtr(
+                    y,
+                    x
+                );
+
+            if (
+                (pixel[0] ?? 0) === 0
+            ) {
+                continue;
+            }
+
+            queue.push(index);
+        }
+    }
+
+    /*
+     * Remove every HSV-positive region that isn't connected
+     * to the supplied seed.
+     */
+    for (
+        let y = 0;
+        y < image.rows;
+        y += 1
+    ) {
+        for (
+            let x = 0;
+            x < image.cols;
+            x += 1
+        ) {
+            const index =
+                y *
+                    image.cols +
+                x;
+
+            const output =
+                binary.ucharPtr(
+                    y,
+                    x
+                );
+
+            output[0] =
+                visited[index] === 1 &&
+                (output[0] ?? 0) > 0
+                    ? 255
+                    : 0;
+        }
+    }
+}
+
+private rgbToOpenCvHsv(
+    r: number,
+    g: number,
+    b: number
+): {
+    h: number;
+    s: number;
+    v: number;
+} {
+    const red =
+        r / 255;
+
+    const green =
+        g / 255;
+
+    const blue =
+        b / 255;
+
+    const max =
+        Math.max(
+            red,
+            green,
+            blue
+        );
+
+    const min =
+        Math.min(
+            red,
+            green,
+            blue
+        );
+
+    const delta =
+        max - min;
+
+    let hue = 0;
+
+    if (
+        delta !== 0
+    ) {
+        if (
+            max === red
+        ) {
+            hue =
+                60 *
+                (
+                    (
+                        green -
+                        blue
+                    ) /
+                    delta
+                );
+
+            if (
+                hue < 0
+            ) {
+                hue += 360;
+            }
+        } else if (
+            max === green
+        ) {
+            hue =
+                60 *
+                (
+                    (
+                        blue -
+                        red
+                    ) /
+                    delta +
+                    2
+                );
+        } else {
+            hue =
+                60 *
+                (
+                    (
+                        red -
+                        green
+                    ) /
+                    delta +
+                    4
+                );
+        }
+    }
+
+    /*
+     * OpenCV stores hue as 0..180 rather than 0..360.
+     */
+    const openCvHue =
+        hue / 2;
+
+    const saturation =
+        max === 0
+            ? 0
+            : (
+                delta /
+                max
+            ) * 255;
+
+    const value =
+        max * 255;
+
+    return {
+        h: openCvHue,
+        s: saturation,
+        v: value
+    };
+}
 
     private createAutomaticMask(
         image: OpenCvMat,

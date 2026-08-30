@@ -58,10 +58,24 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
                         this.cv.approxPolyDP !==
                         undefined
                     ) {
+                        const perimeter =
+                            this.cv.arcLength !==
+                            undefined
+                                ? this.cv.arcLength(
+                                      contour,
+                                      true
+                                  )
+                                : 0;
+
+                        const epsilon =
+                            perimeter > 0
+                                ? perimeter * 0.02
+                                : 3.0;
+
                         this.cv.approxPolyDP(
                             contour,
                             approx,
-                            1.0,
+                            epsilon,
                             true
                         );
 
@@ -114,19 +128,11 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
             );
 
         try {
-            /*
-             * The real OpenCV.js runtime exposes ucharPtr().
-             *
-             * Lightweight mocked runtimes used by the unit tests
-             * may not expose it. In that case we return the correctly
-             * sized binary Mat and allow the mocked findContours()
-             * implementation to provide its test contours.
-             */
             if (
                 image.ucharPtr ===
-                undefined ||
+                    undefined ||
                 binary.ucharPtr ===
-                undefined
+                    undefined
             ) {
                 return binary;
             }
@@ -138,6 +144,10 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
                     image,
                     binary,
                     seed
+                );
+
+                this.cleanSeededMask(
+                    binary
                 );
             } else {
                 this.createAutomaticMask(
@@ -160,9 +170,9 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
     ): void {
         if (
             image.ucharPtr ===
-            undefined ||
+                undefined ||
             binary.ucharPtr ===
-            undefined
+                undefined
         ) {
             return;
         }
@@ -220,7 +230,7 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
             return;
         }
 
-        const tolerance = 30;
+        const tolerance = 35;
 
         const lowerR =
             Math.max(
@@ -317,15 +327,136 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
         }
     }
 
+    private cleanSeededMask(
+        binary: OpenCvMat
+    ): void {
+        if (
+            binary.ucharPtr ===
+            undefined
+        ) {
+            return;
+        }
+
+        const rows =
+            binary.rows;
+
+        const cols =
+            binary.cols;
+
+        /*
+         * Copy the mask first so that every decision is based on the
+         * original mask rather than on pixels modified earlier in the pass.
+         *
+         * Only remove an isolated foreground pixel when it has no meaningful
+         * foreground support around it. In particular, do not erode the
+         * boundary of a legitimate green region.
+         */
+        const values =
+            new Uint8Array(
+                rows * cols
+            );
+
+        for (
+            let y = 0;
+            y < rows;
+            y += 1
+        ) {
+            for (
+                let x = 0;
+                x < cols;
+                x += 1
+            ) {
+                const pixel =
+                    binary.ucharPtr(
+                        y,
+                        x
+                    );
+
+                values[
+                    y * cols + x
+                ] =
+                    pixel[0] ?? 0;
+            }
+        }
+
+        for (
+            let y = 1;
+            y < rows - 1;
+            y += 1
+        ) {
+            for (
+                let x = 1;
+                x < cols - 1;
+                x += 1
+            ) {
+                const index =
+                    y * cols + x;
+
+                if (
+                    values[index] === 0
+                ) {
+                    continue;
+                }
+
+                let neighbours = 0;
+
+                for (
+                    let dy = -1;
+                    dy <= 1;
+                    dy += 1
+                ) {
+                    for (
+                        let dx = -1;
+                        dx <= 1;
+                        dx += 1
+                    ) {
+                        if (
+                            dx === 0 &&
+                            dy === 0
+                        ) {
+                            continue;
+                        }
+
+                        if (
+                            values[
+                                (y + dy) *
+                                    cols +
+                                    (x + dx)
+                            ] > 0
+                        ) {
+                            neighbours += 1;
+                        }
+                    }
+                }
+
+                /*
+                 * A single foreground pixel is noise.
+                 *
+                 * Two or more neighbouring pixels are enough to preserve
+                 * the pixel because it may be part of a thin but legitimate
+                 * boundary. This avoids moving the detected contour inward.
+                 */
+                if (
+                    neighbours === 0
+                ) {
+                    binary.ucharPtr(
+                        y,
+                        x
+                    )[0] = 0;
+                }
+            }
+        }
+    }
+
     private createAutomaticMask(
         image: OpenCvMat,
         binary: OpenCvMat
     ): void {
         if (
             image.ucharPtr ===
-            undefined ||
+                undefined ||
             binary.ucharPtr ===
-            undefined
+                undefined
         ) {
             return;
         }
@@ -385,7 +516,7 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
     ): void {
         if (
             binary.ucharPtr ===
-            undefined
+                undefined
         ) {
             return;
         }

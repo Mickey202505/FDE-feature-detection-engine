@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+    <title>Feature Detection Engine</title>
+  <script type="module" crossorigin src="/assets/index-BA5oi_KH.js"></script>
+</head>
+<body>
+    <h1>Feature Detection Engine</h1>
+
+    <input
+        id="image-input"
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+    >
+
+    <button
+        id="test-button"
+        type="button"
+        disabled
+    >
+        Test
+    </button>
+
+    <pre id="output">Choose a map image.</pre>
+
+    <canvas id="image-canvas"></canvas>
+
+    <script src="/node_modules/opencv.js/opencv.js"></script>
+</body>
+</html>

@@ -26,69 +26,11 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
         let binaryImage: OpenCvMat | undefined;
 
         try {
-            /*
-             * The input image is already an RGBA OpenCV Mat.
-             *
-             * Do not use cvtColor() or inRange() here.
-             *
-             * The Node OpenCV.js build used by this project can
-             * abort inside cvtColor(), and there is no need to
-             * convert the image just to inspect RGB pixels.
-             *
-             * Instead, when pixel access is available, read the
-             * source pixels directly and build a single-channel
-             * binary mask.
-             *
-             * The mocked OpenCV runtime used by the unit tests does
-             * not expose ucharPtr(). In that case we still create a
-             * correctly-sized binary Mat and allow the mocked
-             * findContours() implementation to provide its contours.
-             */
             binaryImage =
                 this.createBinaryImage(
                     image,
                     seed
                 );
-
-            let maskPixels = 0;
-
-            if (
-                binaryImage.ucharPtr !==
-                undefined
-            ) {
-                for (
-                    let y = 0;
-                    y < binaryImage.rows;
-                    y += 1
-                ) {
-                    for (
-                        let x = 0;
-                        x < binaryImage.cols;
-                        x += 1
-                    ) {
-                        const pixel =
-                            binaryImage.ucharPtr(
-                                y,
-                                x
-                            );
-
-                        if (
-                            (pixel[0] ?? 0) > 0
-                        ) {
-                            maskPixels += 1;
-                        }
-                    }
-                }
-            }
-
-            console.log(
-                "OpenCvJsAdapter mask:",
-                {
-                    rows: binaryImage.rows,
-                    cols: binaryImage.cols,
-                    pixels: maskPixels
-                }
-            );
 
             this.cv.findContours(
                 binaryImage,
@@ -161,24 +103,9 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
         image: OpenCvMat,
         seed?: PixelPoint
     ): OpenCvMat {
-        /*
-         * OpenCV.js uses CV_8U as the single-channel 8-bit
-         * unsigned type. Some lightweight mocked runtimes do not
-         * expose the constant, so retain the OpenCV.js value as a
-         * fallback.
-         */
         const CV_8U =
             this.cv.CV_8U ?? 0;
 
-        /*
-         * IMPORTANT:
-         *
-         * The real OpenCV.js runtime used by the integration tests
-         * exposes ucharPtr(). The mocked runtime used by
-         * OpenCvAdapter.test.ts does not.
-         *
-         * Therefore pixel access is optional here.
-         */
         const binary =
             new this.cv.Mat(
                 image.rows,
@@ -188,12 +115,12 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
 
         try {
             /*
-             * Mock runtime:
+             * The real OpenCV.js runtime exposes ucharPtr().
              *
-             * There is no source pixel buffer to inspect and no
-             * need to construct a real mask. The mocked
-             * findContours() implementation is responsible for
-             * returning its test contours.
+             * Lightweight mocked runtimes used by the unit tests
+             * may not expose it. In that case we return the correctly
+             * sized binary Mat and allow the mocked findContours()
+             * implementation to provide its test contours.
              */
             if (
                 image.ucharPtr ===
@@ -204,62 +131,6 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
                 return binary;
             }
 
-            /*
-             * Diagnostic:
-             * verify that the source image actually contains
-             * the expected RGB values at the seed.
-             */
-            if (
-                seed !== undefined
-            ) {
-                const seedX =
-                    Math.round(seed.x);
-
-                const seedY =
-                    Math.round(seed.y);
-
-                const sourcePixel =
-                    image.ucharPtr(
-                        seedY,
-                        seedX
-                    );
-
-                console.log(
-                    "OpenCvJsAdapter source pixel:",
-                    {
-                        x: seedX,
-                        y: seedY,
-                        r: sourcePixel[0],
-                        g: sourcePixel[1],
-                        b: sourcePixel[2],
-                        a: sourcePixel[3]
-                    }
-                );
-            }
-
-            /*
-             * Diagnostic:
-             * verify that the binary Mat supports pixel writes.
-             */
-            const testPixel =
-                binary.ucharPtr(
-                    0,
-                    0
-                );
-
-            testPixel[0] = 255;
-
-            console.log(
-                "OpenCvJsAdapter binary test pixel:",
-                binary.ucharPtr(
-                    0,
-                    0
-                )[0]
-            );
-
-            /*
-             * Now perform the normal mask creation.
-             */
             if (
                 seed !== undefined
             ) {
@@ -313,14 +184,6 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
             );
         }
 
-        /*
-         * The input is RGBA:
-         *
-         *   pixel[0] = R
-         *   pixel[1] = G
-         *   pixel[2] = B
-         *   pixel[3] = A
-         */
         const seedPixel =
             image.ucharPtr(
                 seedY,
@@ -336,10 +199,6 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
         const seedB =
             seedPixel[2] ?? 0;
 
-        /*
-         * A seed is only accepted when the actual seed pixel
-         * is green.
-         */
         const seedDominance =
             seedG -
             Math.max(
@@ -361,9 +220,6 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
             return;
         }
 
-        /*
-         * Use a modest tolerance around the sampled colour.
-         */
         const tolerance = 30;
 
         const lowerR =
@@ -474,15 +330,6 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
             return;
         }
 
-        /*
-         * Automatic detection deliberately uses the same
-         * direct RGB test as the seeded detector.
-         *
-         * A pixel is considered green when:
-         *
-         *   G >= 50
-         *   G - max(R, B) >= 10
-         */
         for (
             let y = 0;
             y < image.rows;

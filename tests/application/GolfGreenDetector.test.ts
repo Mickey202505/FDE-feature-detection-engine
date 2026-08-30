@@ -103,4 +103,63 @@ describe("GolfGreenDetector", () => {
             new WorldPoint(60, 10)
         ]);
     });
+
+    it("converts contour pixels into world coordinates", () => {
+        const contour: OpenCvContour = {
+            points: [
+                { x: 10, y: 20 },
+                { x: 30, y: 20 },
+                { x: 30, y: 40 }
+            ]
+        };
+
+        const adapter: OpenCvAdapter = {
+            findContours: () => [contour]
+        };
+
+        const detector = new GolfGreenDetector(adapter);
+
+        const result = detector.detect({
+            image,
+            metresPerPixel: 0.5
+        });
+
+        expect(result).toHaveLength(1);
+
+        const feature = result[0];
+
+        expect(feature?.type).toBe(FeatureType.Green);
+
+        expect(feature?.polygon.points).toEqual([
+            new WorldPoint(5, 10),
+            new WorldPoint(15, 10),
+            new WorldPoint(15, 20),
+            new WorldPoint(5, 10)
+        ]);
+    });
+
+    it("rejects a non-positive metresPerPixel value", () => {
+        const contour: OpenCvContour = {
+            points: [
+                { x: 10, y: 10 },
+                { x: 20, y: 10 },
+                { x: 20, y: 20 }
+            ]
+        };
+
+        const adapter: OpenCvAdapter = {
+            findContours: () => [contour]
+        };
+
+        const detector = new GolfGreenDetector(adapter);
+
+        expect(() =>
+            detector.detect({
+                image,
+                metresPerPixel: 0
+            })
+        ).toThrow(
+            "metresPerPixel must be greater than zero."
+        );
+    });
 });

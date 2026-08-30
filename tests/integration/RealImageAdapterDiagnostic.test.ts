@@ -1,98 +1,165 @@
-import { describe, it, expect } from "vitest";
-import fs from "node:fs";
-import path from "node:path";
-import { PNG } from "pngjs";
-import { loadOpenCV } from "@opencvjs/node";
-import { OpenCvJsAdapter } from "../../src/application/opencv/OpenCvJsAdapter";
+import { describe, expect, it } from "vitest";
+import { GolfGreenDetector } from "../../src/application/detectors/GolfGreenDetector";
+import { FeatureType } from "../../src/domain/FeatureType";
+import { WorldPoint } from "../../src/domain/WorldPoint";
+import type { OpenCvAdapter } from "../../src/application/opencv/OpenCvAdapter";
+import type {
+    OpenCvContour,
+    OpenCvMat
+} from "../../src/application/opencv/OpenCvTypes";
 
-describe("RealImageAdapter diagnostic", () => {
-    it("detects the seeded green area in the real image", async () => {
-        const imagePath = path.join(
-            process.env.USERPROFILE ?? "",
-            "Downloads",
-            "hole 2.png"
-        );
+describe("GolfGreenDetector", () => {
+    const emptyAdapter: OpenCvAdapter = {
+        findContours: () => []
+    };
 
-        expect(fs.existsSync(imagePath)).toBe(true);
+    const image: OpenCvMat = {
+        rows: 100,
+        cols: 100,
+        delete: () => undefined
+    };
 
-        const png = PNG.sync.read(
-            fs.readFileSync(imagePath)
-        );
+    it("can be created", () => {
+        const detector = new GolfGreenDetector(emptyAdapter);
 
-        const cv = await loadOpenCV();
+        expect(detector).toBeDefined();
+    });
 
-        const mat = cv.matFromImageData({
-            width: png.width,
-            height: png.height,
-            data: new Uint8ClampedArray(png.data)
+    it("returns no features when there are no contours", () => {
+        const detector = new GolfGreenDetector(emptyAdapter);
+
+        const result = detector.detect({
+            image,
+            metresPerPixel: 0.1
         });
 
-        try {
-            const adapter = new OpenCvJsAdapter(cv);
+        expect(result).toEqual([]);
+    });
 
-            const seed = {
-                x: 235,
-                y: 350
-            };
+    it("creates a golf green feature from points", () => {
+        const result = GolfGreenDetector.fromPoints(
+            [
+                new WorldPoint(0, 0),
+                new WorldPoint(10, 0),
+                new WorldPoint(10, 5)
+            ],
+            0.92
+        );
 
-            const seedOffset =
-                (seed.y * png.width + seed.x) * 4;
+        expect(result.type).toBe(FeatureType.Green);
+        expect(result.confidence).toBe(0.92);
+    });
 
-            const seedR =
-                png.data[seedOffset] ?? 0;
+    it("selects the green containing the supplied seed point", () => {
+        const leftGreen: OpenCvContour = {
+            points: [
+                { x: 10, y: 10 },
+                { x: 40, y: 10 },
+                { x: 40, y: 40 },
+                { x: 10, y: 40 }
+            ]
+        };
 
-            const seedG =
-                png.data[seedOffset + 1] ?? 0;
+        const rightGreen: OpenCvContour = {
+            points: [
+                { x: 60, y: 10 },
+                { x: 90, y: 10 },
+                { x: 90, y: 40 },
+                { x: 60, y: 40 }
+            ]
+        };
 
-            const seedB =
-                png.data[seedOffset + 2] ?? 0;
+        const adapter: OpenCvAdapter = {
+            findContours: () => [
+                leftGreen,
+                rightGreen
+            ]
+        };
 
-            expect(seedG).toBeGreaterThanOrEqual(50);
-            expect(
-                seedG - Math.max(seedR, seedB)
-            ).toBeGreaterThanOrEqual(10);
+        const detector = new GolfGreenDetector(adapter);
 
-            const contours =
-                adapter.findContours(
-                    mat,
-                    seed
-                );
+        const result = detector.detect({
+            image,
+            metresPerPixel: 1,
+            seed: {
+                x: 75,
+                y: 25
+            }
+        });
 
-            expect(contours.length).toBeGreaterThan(0);
+        expect(result).toHaveLength(1);
 
-            const containingContours =
-                contours.filter(
-                    contour => {
-                        if (
-                            contour.points.length === 0
-                        ) {
-                            return false;
-                        }
+        const feature = result[0];
 
-                        const xs =
-                            contour.points.map(
-                                point => point.x
-                            );
+        expect(feature).toBeDefined();
 
-                        const ys =
-                            contour.points.map(
-                                point => point.y
-                            );
+        expect(feature?.type).toBe(FeatureType.Green);
 
-                        return (
-                            seed.x >= Math.min(...xs) &&
-                            seed.x <= Math.max(...xs) &&
-                            seed.y >= Math.min(...ys) &&
-                            seed.y <= Math.max(...ys)
-                        );
-                    }
-                );
+        expect(feature?.polygon.points).toEqual([
+            new WorldPoint(60, 10),
+            new WorldPoint(90, 10),
+            new WorldPoint(90, 40),
+            new WorldPoint(60, 40),
+            new WorldPoint(60, 10)
+        ]);
+    });
 
-            expect(
-                containingContours.length
-            ).toBeGreaterThan(0);
-        } finally {
-            mat.delete();
-        }
+    it("converts contour pixels into world coordinates", () => {
+        const contour: OpenCvContour = {
+            points: [
+                { x: 10, y: 20 },
+                { x: 30, y: 20 },
+                { x: 30, y: 40 }
+            ]
+        };
+
+        const adapter: OpenCvAdapter = {
+            findContours: () => [contour]
+        };
+
+        const detector = new GolfGreenDetector(adapter);
+
+        const result = detector.detect({
+            image,
+            metresPerPixel: 0.5
+        });
+
+        expect(result).toHaveLength(1);
+
+        const feature = result[0];
+
+        expect(feature?.type).toBe(FeatureType.Green);
+
+        expect(feature?.polygon.points).toEqual([
+            new WorldPoint(5, 10),
+            new WorldPoint(15, 10),
+            new WorldPoint(15, 20),
+            new WorldPoint(5, 10)
+        ]);
+    });
+
+    it("rejects a non-positive metresPerPixel value", () => {
+        const contour: OpenCvContour = {
+            points: [
+                { x: 10, y: 10 },
+                { x: 20, y: 10 },
+                { x: 20, y: 20 }
+            ]
+        };
+
+        const adapter: OpenCvAdapter = {
+            findContours: () => [contour]
+        };
+
+        const detector = new GolfGreenDetector(adapter);
+
+        expect(() =>
+            detector.detect({
+                image,
+                metresPerPixel: 0
+            })
+        ).toThrow(
+            "metresPerPixel must be greater than zero."
+        );
     });
 });

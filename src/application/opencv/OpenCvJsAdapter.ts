@@ -69,7 +69,7 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
 
                         const epsilon =
                             perimeter > 0
-                                ? perimeter * 0.02
+                                ? perimeter * 0.01
                                 : 3.0;
 
                         this.cv.approxPolyDP(

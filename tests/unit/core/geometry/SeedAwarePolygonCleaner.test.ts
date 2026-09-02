@@ -6,7 +6,6 @@ import {
 } from "../../../../src/core/geometry/SeedAwarePolygonCleaner";
 
 describe("SeedAwarePolygonCleaner", () => {
-
     const hasPoint = (
         points: SeedAwarePolygonPoint[],
         target: SeedAwarePolygonPoint
@@ -153,6 +152,73 @@ describe("SeedAwarePolygonCleaner", () => {
 
         expect(
             hasPoint(cleaned, largeSpike)
+        ).toBe(true);
+    });
+
+    it("keeps a smooth oval green boundary unchanged", () => {
+        const seed = {
+            x: 0,
+            y: 0
+        };
+
+        const polygon: SeedAwarePolygonPoint[] = [
+            { x: 0, y: -100 },
+            { x: 50, y: -87 },
+            { x: 87, y: -50 },
+            { x: 100, y: 0 },
+            { x: 87, y: 50 },
+            { x: 50, y: 87 },
+            { x: 0, y: 100 },
+            { x: -50, y: 87 },
+            { x: -87, y: 50 },
+            { x: -100, y: 0 },
+            { x: -87, y: -50 },
+            { x: -50, y: -87 }
+        ];
+
+        const cleaner = new SeedAwarePolygonCleaner();
+
+        const cleaned = cleaner.clean(
+            polygon,
+            seed
+        );
+
+        expect(cleaned).toEqual(
+            polygon
+        );
+    });
+
+    it("preserves a genuine pronounced corner in an otherwise regular boundary", () => {
+        const seed = {
+            x: 0,
+            y: 0
+        };
+
+        const corner: SeedAwarePolygonPoint = {
+            x: 100,
+            y: 0
+        };
+
+        const polygon: SeedAwarePolygonPoint[] = [
+            { x: -70, y: -70 },
+            { x: 0, y: -100 },
+            { x: 70, y: -70 },
+            corner,
+            { x: 70, y: 70 },
+            { x: 0, y: 100 },
+            { x: -70, y: 70 },
+            { x: -100, y: 0 }
+        ];
+
+        const cleaner = new SeedAwarePolygonCleaner();
+
+        const cleaned = cleaner.clean(
+            polygon,
+            seed
+        );
+
+        expect(
+            hasPoint(cleaned, corner)
         ).toBe(true);
     });
 

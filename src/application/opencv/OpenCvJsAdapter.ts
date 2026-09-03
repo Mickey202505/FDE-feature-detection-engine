@@ -285,7 +285,7 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
             return;
         }
 
-        const tolerance = 35;
+        const tolerance = 20;
 
         const lowerR =
             Math.max(

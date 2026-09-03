@@ -92,11 +92,24 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
                         if (
                             seed !== undefined
                         ) {
-                            points =
+                            const beforeCleaning =
+                                points;
+
+                            const afterCleaning =
                                 this.cleanSeedAwarePolygon(
-                                    points,
+                                    beforeCleaning,
                                     seed
                                 );
+
+                            this.logSeedAwareCleaningDiagnostic(
+                                i,
+                                beforeCleaning,
+                                afterCleaning,
+                                seed
+                            );
+
+                            points =
+                                afterCleaning;
                         }
 
                         result.push({
@@ -111,11 +124,24 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
                         if (
                             seed !== undefined
                         ) {
-                            points =
+                            const beforeCleaning =
+                                points;
+
+                            const afterCleaning =
                                 this.cleanSeedAwarePolygon(
-                                    points,
+                                    beforeCleaning,
                                     seed
                                 );
+
+                            this.logSeedAwareCleaningDiagnostic(
+                                i,
+                                beforeCleaning,
+                                afterCleaning,
+                                seed
+                            );
+
+                            points =
+                                afterCleaning;
                         }
 
                         result.push({
@@ -630,6 +656,73 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
         }
 
         return cleaned;
+    }
+
+    private logSeedAwareCleaningDiagnostic(
+        contourIndex: number,
+        before: readonly PolygonPoint[],
+        after: readonly PolygonPoint[],
+        seed: PixelPoint
+    ): void {
+        const afterKeys =
+            new Set(
+                after.map(
+                    point =>
+                        `${point.x},${point.y}`
+                )
+            );
+
+        const removed =
+            before.filter(
+                point =>
+                    !afterKeys.has(
+                        `${point.x},${point.y}`
+                    )
+            );
+
+        console.log(
+            "\n[SeedAwarePolygonDiagnostic]"
+        );
+
+        console.log(
+            "Contour:",
+            contourIndex
+        );
+
+        console.log(
+            "Seed:",
+            seed
+        );
+
+        console.log(
+            "Before cleaning:",
+            before.length,
+            "points"
+        );
+
+        console.log(
+            before
+        );
+
+        console.log(
+            "After cleaning:",
+            after.length,
+            "points"
+        );
+
+        console.log(
+            after
+        );
+
+        console.log(
+            "Removed:",
+            removed.length,
+            "points"
+        );
+
+        console.log(
+            removed
+        );
     }
 
     private isSuspiciousSeedAwareVertex(

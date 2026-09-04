@@ -126,8 +126,8 @@ export class SeedAwarePolygonCleaner {
         }
 
         /*
-         * Compare the suspicious point against the
-         * broader direction of the boundary.
+         * First check the broader direction of the
+         * surrounding boundary.
          *
          * We deliberately do not use the seed as a
          * centre point.
@@ -169,32 +169,123 @@ export class SeedAwarePolygonCleaner {
 
         /*
          * A spike normally has two short edges.
-         * We keep this deliberately fairly strict so
-         * ordinary corners are not removed.
+         *
+         * Keep this at 0.75 for now. The turning-angle
+         * check below is what distinguishes a sharp spike
+         * from a legitimate broad corner.
          */
         const incomingIsShort =
             incomingLength <
-            previousBoundaryLength * 0.45;
+            previousBoundaryLength * 0.50;
 
         const outgoingIsShort =
             outgoingLength <
-            nextBoundaryLength * 0.45;
+            nextBoundaryLength * 0.50;
 
         /*
-         * The point must protrude substantially from the
-         * surrounding boundary direction.
+         * Measure the actual change in direction at this
+         * point.
+         *
+         * A legitimate corner can protrude from the
+         * surrounding line but still have a broad
+         * direction change.
+         *
+         * An artificial spike tends to make a much sharper
+         * direction change.
+         */
+        const turningAngle =
+            this.calculateTurningAngle(
+                previous,
+                current,
+                next,
+            );
+
+        const isSharpSpike =
+            turningAngle < 120;
+
+        /*
+         * The point must also be meaningfully displaced
+         * from the broader boundary.
          */
         const isMeaningfullyDisplaced =
             distanceFromSurroundingLine >
             Math.min(
                 previousBoundaryLength,
                 nextBoundaryLength,
-            ) * 0.35;
+            ) * 0.20;
 
         return (
             incomingIsShort &&
             outgoingIsShort &&
+            isSharpSpike &&
             isMeaningfullyDisplaced
+        );
+    }
+
+    private calculateTurningAngle(
+        previous: SeedAwarePolygonPoint,
+        current: SeedAwarePolygonPoint,
+        next: SeedAwarePolygonPoint,
+    ): number {
+        const incomingX =
+            previous.x -
+            current.x;
+
+        const incomingY =
+            previous.y -
+            current.y;
+
+        const outgoingX =
+            next.x -
+            current.x;
+
+        const outgoingY =
+            next.y -
+            current.y;
+
+        const incomingLength =
+            Math.sqrt(
+                incomingX * incomingX +
+                    incomingY * incomingY,
+            );
+
+        const outgoingLength =
+            Math.sqrt(
+                outgoingX * outgoingX +
+                    outgoingY * outgoingY,
+            );
+
+        if (
+            incomingLength === 0 ||
+            outgoingLength === 0
+        ) {
+            return 180;
+        }
+
+        const cosine =
+            (
+                incomingX * outgoingX +
+                incomingY * outgoingY
+            ) /
+            (
+                incomingLength *
+                outgoingLength
+            );
+
+        const clampedCosine =
+            Math.max(
+                -1,
+                Math.min(
+                    1,
+                    cosine,
+                ),
+            );
+
+        return (
+            Math.acos(
+                clampedCosine,
+            ) *
+            (180 / Math.PI)
         );
     }
 
@@ -248,7 +339,8 @@ export class SeedAwarePolygonCleaner {
             Math.abs(
                 candidateArea -
                     originalArea,
-            ) / originalArea;
+            ) /
+            originalArea;
 
         if (
             relativeAreaChange > 0.1
@@ -303,13 +395,15 @@ export class SeedAwarePolygonCleaner {
                 current.y > point.y !==
                     previous.y > point.y &&
                 point.x <
-                    ((previous.x -
-                        current.x) *
+                    (
+                        (previous.x -
+                            current.x) *
                         (point.y -
-                            current.y)) /
+                            current.y)
+                    ) /
                         (previous.y -
                             current.y) +
-                        current.x;
+                    current.x;
 
             if (intersects) {
                 inside = !inside;
@@ -355,10 +449,12 @@ export class SeedAwarePolygonCleaner {
         second: SeedAwarePolygonPoint,
     ): number {
         const dx =
-            second.x - first.x;
+            second.x -
+            first.x;
 
         const dy =
-            second.y - first.y;
+            second.y -
+            first.y;
 
         return Math.sqrt(
             dx * dx +

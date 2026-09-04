@@ -1,10 +1,13 @@
-import type { PixelPoint } from "../../application/opencv/PixelPoint";
+export interface SeedAwarePolygonPoint {
+    readonly x: number;
+    readonly y: number;
+}
 
 export class SeedAwarePolygonCleaner {
     clean(
-        points: readonly PixelPoint[],
-        seed: PixelPoint,
-    ): PixelPoint[] {
+        points: readonly SeedAwarePolygonPoint[],
+        seed: SeedAwarePolygonPoint,
+    ): SeedAwarePolygonPoint[] {
         if (points.length < 5) {
             return [...points];
         }
@@ -55,17 +58,17 @@ export class SeedAwarePolygonCleaner {
     }
 
     private isSuspiciousVertex(
-        points: readonly PixelPoint[],
+        points: readonly SeedAwarePolygonPoint[],
         index: number,
     ): boolean {
-        if (points.length < 3) {
+        if (points.length < 5) {
             return false;
         }
 
         const previous =
             points[
                 (index - 1 + points.length) %
-                points.length
+                    points.length
             ];
 
         const current =
@@ -74,69 +77,131 @@ export class SeedAwarePolygonCleaner {
         const next =
             points[
                 (index + 1) %
-                points.length
+                    points.length
             ];
 
-        const lineX =
-            next.x - previous.x;
+        const beforePrevious =
+            points[
+                (index - 2 + points.length) %
+                    points.length
+            ];
 
-        const lineY =
-            next.y - previous.y;
+        const afterNext =
+            points[
+                (index + 2) %
+                    points.length
+            ];
 
-        const lineLength =
-            Math.sqrt(
-                lineX * lineX +
-                lineY * lineY,
+        const incomingLength =
+            this.distance(
+                previous,
+                current,
             );
 
-        if (lineLength === 0) {
-            return false;
-        }
-
-        const pointX =
-            current.x - previous.x;
-
-        const pointY =
-            current.y - previous.y;
-
-        const perpendicularDistance =
-            Math.abs(
-                lineX * pointY -
-                lineY * pointX,
-            ) / lineLength;
-
-        const previousLength =
-            Math.sqrt(
-                pointX * pointX +
-                pointY * pointY,
+        const outgoingLength =
+            this.distance(
+                current,
+                next,
             );
 
-        const nextX =
-            next.x - current.x;
+        const previousBoundaryLength =
+            this.distance(
+                beforePrevious,
+                previous,
+            );
 
-        const nextY =
-            next.y - current.y;
-
-        const nextLength =
-            Math.sqrt(
-                nextX * nextX +
-                nextY * nextY,
+        const nextBoundaryLength =
+            this.distance(
+                next,
+                afterNext,
             );
 
         if (
-            previousLength < 3 ||
-            nextLength < 3
+            incomingLength === 0 ||
+            outgoingLength === 0 ||
+            previousBoundaryLength === 0 ||
+            nextBoundaryLength === 0
         ) {
             return false;
         }
 
-        return perpendicularDistance <= 1.5;
+        /*
+         * Compare the suspicious point against the
+         * broader direction of the boundary.
+         *
+         * We deliberately do not use the seed as a
+         * centre point.
+         */
+        const surroundingDirectionX =
+            afterNext.x -
+            beforePrevious.x;
+
+        const surroundingDirectionY =
+            afterNext.y -
+            beforePrevious.y;
+
+        const surroundingLength =
+            Math.sqrt(
+                surroundingDirectionX *
+                    surroundingDirectionX +
+                    surroundingDirectionY *
+                    surroundingDirectionY,
+            );
+
+        if (surroundingLength === 0) {
+            return false;
+        }
+
+        const distanceFromSurroundingLine =
+            Math.abs(
+                surroundingDirectionX *
+                    (
+                        current.y -
+                        beforePrevious.y
+                    ) -
+                    surroundingDirectionY *
+                    (
+                        current.x -
+                        beforePrevious.x
+                    ),
+            ) /
+            surroundingLength;
+
+        /*
+         * A spike normally has two short edges.
+         * We keep this deliberately fairly strict so
+         * ordinary corners are not removed.
+         */
+        const incomingIsShort =
+            incomingLength <
+            previousBoundaryLength * 0.45;
+
+        const outgoingIsShort =
+            outgoingLength <
+            nextBoundaryLength * 0.45;
+
+        /*
+         * The point must protrude substantially from the
+         * surrounding boundary direction.
+         */
+        const isMeaningfullyDisplaced =
+            distanceFromSurroundingLine >
+            Math.min(
+                previousBoundaryLength,
+                nextBoundaryLength,
+            ) * 0.35;
+
+        return (
+            incomingIsShort &&
+            outgoingIsShort &&
+            isMeaningfullyDisplaced
+        );
     }
 
     private isValidRemoval(
-        points: readonly PixelPoint[],
+        points: readonly SeedAwarePolygonPoint[],
         index: number,
-        seed: PixelPoint,
+        seed: SeedAwarePolygonPoint,
     ): boolean {
         if (points.length <= 3) {
             return false;
@@ -195,7 +260,7 @@ export class SeedAwarePolygonCleaner {
     }
 
     private hasDuplicatePoints(
-        points: readonly PixelPoint[],
+        points: readonly SeedAwarePolygonPoint[],
     ): boolean {
         const seen = new Set<string>();
 
@@ -214,8 +279,8 @@ export class SeedAwarePolygonCleaner {
     }
 
     private isPointInsidePolygon(
-        point: PixelPoint,
-        polygon: readonly PixelPoint[],
+        point: SeedAwarePolygonPoint,
+        polygon: readonly SeedAwarePolygonPoint[],
     ): boolean {
         let inside = false;
 
@@ -255,7 +320,7 @@ export class SeedAwarePolygonCleaner {
     }
 
     private calculatePolygonArea(
-        points: readonly PixelPoint[],
+        points: readonly SeedAwarePolygonPoint[],
     ): number {
         if (points.length < 3) {
             return 0;
@@ -274,7 +339,7 @@ export class SeedAwarePolygonCleaner {
             const next =
                 points[
                     (index + 1) %
-                    points.length
+                        points.length
                 ];
 
             area +=
@@ -283,5 +348,21 @@ export class SeedAwarePolygonCleaner {
         }
 
         return Math.abs(area) / 2;
+    }
+
+    private distance(
+        first: SeedAwarePolygonPoint,
+        second: SeedAwarePolygonPoint,
+    ): number {
+        const dx =
+            second.x - first.x;
+
+        const dy =
+            second.y - first.y;
+
+        return Math.sqrt(
+            dx * dx +
+                dy * dy,
+        );
     }
 }

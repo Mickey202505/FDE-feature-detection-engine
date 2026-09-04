@@ -1,23 +1,15 @@
 import type { PixelPoint } from "../../application/opencv/PixelPoint";
 
-export interface SeedAwarePolygonPoint {
-    x: number;
-    y: number;
-}
-
 export class SeedAwarePolygonCleaner {
-    public clean(
-        points: readonly SeedAwarePolygonPoint[],
-        seed: PixelPoint
-    ): readonly SeedAwarePolygonPoint[] {
-        if (
-            points.length < 5
-        ) {
-            return points;
+    clean(
+        points: readonly PixelPoint[],
+        seed: PixelPoint,
+    ): PixelPoint[] {
+        if (points.length < 5) {
+            return [...points];
         }
 
-        const cleaned =
-            [...points];
+        let cleaned = [...points];
 
         let changed = true;
 
@@ -28,54 +20,34 @@ export class SeedAwarePolygonCleaner {
             changed = false;
 
             for (
-                let i = 0;
-                i < cleaned.length;
-                i += 1
+                let index = 0;
+                index < cleaned.length;
+                index += 1
             ) {
                 if (
-                    !this.isSuspiciousVertex(
+                    this.isSuspiciousVertex(
                         cleaned,
-                        i,
-                        seed
+                        index,
+                    ) &&
+                    this.isValidRemoval(
+                        cleaned,
+                        index,
+                        seed,
                     )
                 ) {
-                    continue;
+                    cleaned =
+                        cleaned.filter(
+                            (
+                                _,
+                                candidateIndex,
+                            ) =>
+                                candidateIndex !==
+                                index,
+                        );
+
+                    changed = true;
+                    break;
                 }
-
-                const candidate =
-                    cleaned.filter(
-                        (
-                            _,
-                            index
-                        ) =>
-                            index !== i
-                    );
-
-                if (
-                    !this.isValidPolygon(
-                        candidate,
-                        seed
-                    )
-                ) {
-                    continue;
-                }
-
-                if (
-                    this.areaDifference(
-                        cleaned,
-                        candidate
-                    ) > 0.10
-                ) {
-                    continue;
-                }
-
-                cleaned.splice(
-                    i,
-                    1
-                );
-
-                changed = true;
-                break;
             }
         }
 
@@ -83,16 +55,17 @@ export class SeedAwarePolygonCleaner {
     }
 
     private isSuspiciousVertex(
-        points: readonly SeedAwarePolygonPoint[],
+        points: readonly PixelPoint[],
         index: number,
-        seed: PixelPoint
     ): boolean {
+        if (points.length < 3) {
+            return false;
+        }
+
         const previous =
             points[
-                this.wrapIndex(
-                    index - 1,
-                    points.length
-                )
+                (index - 1 + points.length) %
+                points.length
             ];
 
         const current =
@@ -100,249 +73,84 @@ export class SeedAwarePolygonCleaner {
 
         const next =
             points[
-                this.wrapIndex(
-                    index + 1,
-                    points.length
-                )
+                (index + 1) %
+                points.length
             ];
 
+        const lineX =
+            next.x - previous.x;
+
+        const lineY =
+            next.y - previous.y;
+
+        const lineLength =
+            Math.sqrt(
+                lineX * lineX +
+                lineY * lineY,
+            );
+
+        if (lineLength === 0) {
+            return false;
+        }
+
+        const pointX =
+            current.x - previous.x;
+
+        const pointY =
+            current.y - previous.y;
+
+        const perpendicularDistance =
+            Math.abs(
+                lineX * pointY -
+                lineY * pointX,
+            ) / lineLength;
+
+        const previousLength =
+            Math.sqrt(
+                pointX * pointX +
+                pointY * pointY,
+            );
+
+        const nextX =
+            next.x - current.x;
+
+        const nextY =
+            next.y - current.y;
+
+        const nextLength =
+            Math.sqrt(
+                nextX * nextX +
+                nextY * nextY,
+            );
+
         if (
-            previous === undefined ||
-            current === undefined ||
-            next === undefined
+            previousLength < 3 ||
+            nextLength < 3
         ) {
             return false;
         }
 
-        const turnSeverity =
-            this.calculateTurnSeverity(
-                previous,
-                current,
-                next
-            );
-
-        if (
-            turnSeverity < 35
-        ) {
-            return false;
-        }
-
-        const previousAngle =
-            this.calculateSeedAngle(
-                previous,
-                seed
-            );
-
-        const currentAngle =
-            this.calculateSeedAngle(
-                current,
-                seed
-            );
-
-        const nextAngle =
-            this.calculateSeedAngle(
-                next,
-                seed
-            );
-
-        const incomingChange =
-            Math.abs(
-                this.normaliseAngleDifference(
-                    currentAngle -
-                        previousAngle
-                )
-            );
-
-        const outgoingChange =
-            Math.abs(
-                this.normaliseAngleDifference(
-                    nextAngle -
-                        currentAngle
-                )
-            );
-
-        const directionChange =
-            Math.abs(
-                incomingChange -
-                    outgoingChange
-            );
-
-        const previousDistance =
-            this.calculateDistanceFromSeed(
-                previous,
-                seed
-            );
-
-        const currentDistance =
-            this.calculateDistanceFromSeed(
-                current,
-                seed
-            );
-
-        const nextDistance =
-            this.calculateDistanceFromSeed(
-                next,
-                seed
-            );
-
-        const surroundingDistance =
-            (
-                previousDistance +
-                nextDistance
-            ) / 2;
-
-        if (
-            surroundingDistance === 0
-        ) {
-            return false;
-        }
-
-        const radialDeviation =
-            Math.abs(
-                currentDistance -
-                    surroundingDistance
-            ) /
-            surroundingDistance;
-
-        return (
-            directionChange >= 25 &&
-            radialDeviation >= 0.12
-        );
+        return perpendicularDistance <= 1.5;
     }
 
-    private calculateSeedAngle(
-        point: SeedAwarePolygonPoint,
-        seed: PixelPoint
-    ): number {
-        return (
-            Math.atan2(
-                point.y - seed.y,
-                point.x - seed.x
-            ) *
-            180 /
-            Math.PI
-        );
-    }
-
-    private calculateDistanceFromSeed(
-        point: SeedAwarePolygonPoint,
-        seed: PixelPoint
-    ): number {
-        return Math.hypot(
-            point.x - seed.x,
-            point.y - seed.y
-        );
-    }
-
-    private calculateTurnSeverity(
-        previous: SeedAwarePolygonPoint,
-        current: SeedAwarePolygonPoint,
-        next: SeedAwarePolygonPoint
-    ): number {
-        const incomingX =
-            previous.x -
-            current.x;
-
-        const incomingY =
-            previous.y -
-            current.y;
-
-        const outgoingX =
-            next.x -
-            current.x;
-
-        const outgoingY =
-            next.y -
-            current.y;
-
-        const incomingLength =
-            Math.hypot(
-                incomingX,
-                incomingY
-            );
-
-        const outgoingLength =
-            Math.hypot(
-                outgoingX,
-                outgoingY
-            );
-
-        if (
-            incomingLength === 0 ||
-            outgoingLength === 0
-        ) {
-            return 0;
-        }
-
-        const cosine =
-            (
-                incomingX *
-                    outgoingX +
-                incomingY *
-                    outgoingY
-            ) /
-            (
-                incomingLength *
-                outgoingLength
-            );
-
-        const clampedCosine =
-            Math.max(
-                -1,
-                Math.min(
-                    1,
-                    cosine
-                )
-            );
-
-        const interiorAngle =
-            Math.acos(
-                clampedCosine
-            ) *
-            180 /
-            Math.PI;
-
-        return Math.max(
-            0,
-            180 -
-                interiorAngle
-        );
-    }
-
-    private normaliseAngleDifference(
-        angle: number
-    ): number {
-        let result =
-            angle;
-
-        while (
-            result > 180
-        ) {
-            result -= 360;
-        }
-
-        while (
-            result < -180
-        ) {
-            result += 360;
-        }
-
-        return result;
-    }
-
-    private isValidPolygon(
-        points: readonly SeedAwarePolygonPoint[],
-        seed: PixelPoint
+    private isValidRemoval(
+        points: readonly PixelPoint[],
+        index: number,
+        seed: PixelPoint,
     ): boolean {
-        if (
-            points.length < 4
-        ) {
+        if (points.length <= 3) {
             return false;
         }
+
+        const candidate =
+            points.filter(
+                (_, candidateIndex) =>
+                    candidateIndex !== index,
+            );
 
         if (
             this.hasDuplicatePoints(
-                points
+                candidate,
             )
         ) {
             return false;
@@ -351,30 +159,51 @@ export class SeedAwarePolygonCleaner {
         if (
             !this.isPointInsidePolygon(
                 seed,
-                points
+                candidate,
             )
         ) {
             return false;
         }
 
-        return true;
+        const originalArea =
+            this.calculatePolygonArea(
+                points,
+            );
+
+        const candidateArea =
+            this.calculatePolygonArea(
+                candidate,
+            );
+
+        if (originalArea === 0) {
+            return false;
+        }
+
+        const relativeAreaChange =
+            Math.abs(
+                candidateArea -
+                    originalArea,
+            ) / originalArea;
+
+        if (
+            relativeAreaChange > 0.1
+        ) {
+            return false;
+        }
+
+        return candidate.length >= 3;
     }
 
     private hasDuplicatePoints(
-        points: readonly SeedAwarePolygonPoint[]
+        points: readonly PixelPoint[],
     ): boolean {
-        const seen =
-            new Set<string>();
+        const seen = new Set<string>();
 
-        for (
-            const point of points
-        ) {
+        for (const point of points) {
             const key =
-                `${point.x},${point.y}`;
+                `${point.x}:${point.y}`;
 
-            if (
-                seen.has(key)
-            ) {
+            if (seen.has(key)) {
                 return true;
             }
 
@@ -386,140 +215,73 @@ export class SeedAwarePolygonCleaner {
 
     private isPointInsidePolygon(
         point: PixelPoint,
-        polygon: readonly SeedAwarePolygonPoint[]
+        polygon: readonly PixelPoint[],
     ): boolean {
         let inside = false;
 
         for (
-            let i = 0,
-                j = polygon.length - 1;
-            i < polygon.length;
-            j = i,
-            i += 1
+            let index = 0;
+            index < polygon.length;
+            index += 1
         ) {
             const current =
-                polygon[i];
+                polygon[index];
 
             const previous =
-                polygon[j];
-
-            if (
-                current === undefined ||
-                previous === undefined
-            ) {
-                continue;
-            }
+                polygon[
+                    (index - 1 +
+                        polygon.length) %
+                        polygon.length
+                ];
 
             const intersects =
-                (
-                    current.y > point.y
-                ) !==
-                    (
-                        previous.y >
-                        point.y
-                    ) &&
+                current.y > point.y !==
+                    previous.y > point.y &&
                 point.x <
-                    (
-                        previous.x -
-                        current.x
-                    ) *
-                        (
-                            point.y -
-                            current.y
-                        ) /
-                        (
-                            previous.y -
-                            current.y
-                        ) +
-                    current.x;
+                    ((previous.x -
+                        current.x) *
+                        (point.y -
+                            current.y)) /
+                        (previous.y -
+                            current.y) +
+                        current.x;
 
-            if (
-                intersects
-            ) {
-                inside =
-                    !inside;
+            if (intersects) {
+                inside = !inside;
             }
         }
 
         return inside;
     }
 
-    private polygonArea(
-        points: readonly SeedAwarePolygonPoint[]
+    private calculatePolygonArea(
+        points: readonly PixelPoint[],
     ): number {
+        if (points.length < 3) {
+            return 0;
+        }
+
         let area = 0;
 
         for (
-            let i = 0;
-            i < points.length;
-            i += 1
+            let index = 0;
+            index < points.length;
+            index += 1
         ) {
             const current =
-                points[i];
+                points[index];
 
             const next =
                 points[
-                    (i + 1) %
-                        points.length
+                    (index + 1) %
+                    points.length
                 ];
 
-            if (
-                current === undefined ||
-                next === undefined
-            ) {
-                continue;
-            }
-
             area +=
-                current.x *
-                    next.y -
-                next.x *
-                    current.y;
+                current.x * next.y -
+                next.x * current.y;
         }
 
-        return Math.abs(
-            area / 2
-        );
-    }
-
-    private areaDifference(
-        original: readonly SeedAwarePolygonPoint[],
-        candidate: readonly SeedAwarePolygonPoint[]
-    ): number {
-        const originalArea =
-            this.polygonArea(
-                original
-            );
-
-        if (
-            originalArea === 0
-        ) {
-            return 1;
-        }
-
-        const candidateArea =
-            this.polygonArea(
-                candidate
-            );
-
-        return Math.abs(
-            originalArea -
-                candidateArea
-        ) /
-            originalArea;
-    }
-
-    private wrapIndex(
-        index: number,
-        length: number
-    ): number {
-        return (
-            (
-                index %
-                    length
-            ) +
-            length
-        ) %
-            length;
+        return Math.abs(area) / 2;
     }
 }

@@ -1,17 +1,17 @@
 export interface OpenCvMat {
     readonly rows: number;
     readonly cols: number;
+
     readonly data32S?: Int32Array;
 
-    delete(): void;
+    readonly delete: () => void;
 
-    type?(): number;
+    readonly type?: () => number;
 
-    ucharPtr?(
+    readonly ucharPtr?: (
         row: number,
-        col: number
-    ): Uint8Array;
-
+        col: number,
+    ) => Uint8Array;
 }
 
 export interface OpenCvPoint {
@@ -25,12 +25,8 @@ export interface OpenCvContour {
 
 export interface OpenCvContourCollection {
     readonly size: () => number;
-
-    readonly get: (
-        index: number
-    ) => OpenCvMat;
-
-    delete(): void;
+    readonly get: (index: number) => OpenCvMat;
+    readonly delete: () => void;
 }
 
 export interface OpenCvImageData {
@@ -40,122 +36,96 @@ export interface OpenCvImageData {
 }
 
 export interface OpenCvRuntime {
-
-readonly Mat: {
-    new (): OpenCvMat;
-
-    new (
-        rows: number,
-        cols: number,
-        type: number,
-        data?: number[]
-    ): OpenCvMat;
-
-    ones?(
-        rows: number,
-        cols: number,
-        type: number
-    ): OpenCvMat;
-};
+    readonly Mat: new (
+        rows?: number,
+        cols?: number,
+        type?: number,
+    ) => OpenCvMat;
 
     readonly MatVector: new () => OpenCvContourCollection;
 
-    findContours(
+    readonly findContours: (
         image: OpenCvMat,
         contours: OpenCvContourCollection,
         hierarchy: OpenCvMat,
         mode: number,
-        method: number
-    ): void;
+        method: number,
+    ) => void;
 
-    approxPolyDP?(
+    readonly approxPolyDP?: (
         curve: OpenCvMat,
         approxCurve: OpenCvMat,
         epsilon: number,
-        closed: boolean
-    ): void;
+        closed: boolean,
+    ) => void;
 
-    threshold?(
+    readonly threshold?: (
         src: OpenCvMat,
         dst: OpenCvMat,
         thresh: number,
         maxval: number,
-        type: number
-    ): void;
+        type: number,
+    ) => void;
 
-    cvtColor?(
+    readonly cvtColor?: (
         src: OpenCvMat,
         dst: OpenCvMat,
-        code: number
-    ): void;
+        code: number,
+    ) => void;
 
-    inRange?(
+    readonly inRange?: (
         src: OpenCvMat,
         lowerb: OpenCvMat,
         upperb: OpenCvMat,
-        dst: OpenCvMat
-    ): void;
+        dst: OpenCvMat,
+    ) => void;
 
-    getStructuringElement?(
+    readonly getStructuringElement?: (
         shape: number,
-        ksize: OpenCvSize
-    ): OpenCvMat;
+        ksize: unknown,
+    ) => OpenCvMat;
 
-    morphologyEx?(
+    readonly morphologyEx?: (
         src: OpenCvMat,
         dst: OpenCvMat,
         op: number,
-        kernel: OpenCvMat
-    ): void;
+        kernel: OpenCvMat,
+    ) => void;
 
-    GaussianBlur?(
+    readonly GaussianBlur?: (
         src: OpenCvMat,
         dst: OpenCvMat,
-        ksize: OpenCvSize,
+        ksize: unknown,
         sigmaX: number,
-        sigmaY: number
-    ): void;
+    ) => void;
 
-    dilate?(
+    readonly dilate?: (
         src: OpenCvMat,
         dst: OpenCvMat,
         kernel: OpenCvMat,
-        anchor: OpenCvPoint,
-        iterations: number
-    ): void;
+    ) => void;
 
     readonly RETR_EXTERNAL: number;
     readonly CHAIN_APPROX_SIMPLE: number;
+    readonly CV_8U: number;
 
-    readonly COLOR_RGBA2GRAY?: number;
     readonly COLOR_RGBA2RGB?: number;
+    readonly COLOR_RGBA2GRAY?: number;
 
-    readonly MORPH_ELLIPSE?: number;
     readonly MORPH_OPEN?: number;
     readonly MORPH_CLOSE?: number;
 
-    readonly THRESH_BINARY?: number;
-    readonly THRESH_OTSU?: number;
-
-    readonly CV_8U?: number;
-
-    readonly Size: new (
-        width: number,
-        height: number
-    ) => OpenCvSize;
-
-    readonly Point: new (
-        x: number,
-        y: number
-    ) => OpenCvPoint;
-
     readonly matFromImageData?: (
-        imageData: OpenCvImageData
+        imageData: OpenCvImageData,
     ) => OpenCvMat;
 
-}
+    readonly Size?: new (
+        width: number,
+        height: number,
+    ) => unknown;
 
-export interface OpenCvSize {
-    readonly width: number;
-    readonly height: number;
+    readonly Point?: new (
+        x: number,
+        y: number,
+    ) => unknown;
 }

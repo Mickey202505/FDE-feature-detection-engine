@@ -1,599 +1,567 @@
 import type {
+    OpenCvAdapter,
+} from "./OpenCvAdapter";
+import type {
     OpenCvContour,
+    OpenCvContourCollection,
+    OpenCvImageData,
     OpenCvMat,
-    OpenCvRuntime
+    OpenCvPoint,
+    OpenCvRuntime,
 } from "./OpenCvTypes";
-
 import type { PixelPoint } from "./PixelPoint";
-import type { OpenCvAdapter } from "./OpenCvAdapter";
-
-interface PolygonPoint {
-    x: number;
-    y: number;
-}
 
 export class OpenCvJsAdapter implements OpenCvAdapter {
-    private readonly cv: OpenCvRuntime;
+    constructor(private readonly cv: OpenCvRuntime) {}
 
-    public constructor(cv: OpenCvRuntime) {
-        this.cv = cv;
-    }
-
-    public findContours(
+    findContours(
         image: OpenCvMat,
-        seed?: PixelPoint
+        seed?: PixelPoint,
     ): readonly OpenCvContour[] {
         this.validateImage(image);
 
+        const binaryImage = this.createBinaryImage(image, seed);
         const contours = new this.cv.MatVector();
         const hierarchy = new this.cv.Mat();
 
-        let binaryImage: OpenCvMat | undefined;
-
         try {
-            binaryImage =
-                this.createBinaryImage(
-                    image,
-                    seed
-                );
-
             this.cv.findContours(
                 binaryImage,
                 contours,
                 hierarchy,
                 this.cv.RETR_EXTERNAL,
-                this.cv.CHAIN_APPROX_SIMPLE
+                this.cv.CHAIN_APPROX_SIMPLE,
             );
 
-            const result: OpenCvContour[] = [];
+            const results: OpenCvContour[] = [];
 
-            for (
-                let i = 0;
-                i < contours.size();
-                i += 1
-            ) {
-                const contour =
-                    contours.get(i);
-
-                const approx =
-                    new this.cv.Mat();
+            for (let index = 0; index < contours.size(); index += 1) {
+                const contour = contours.get(index);
 
                 try {
-                    if (
-                        this.cv.approxPolyDP !==
-                        undefined
-                    ) {
-                        const perimeter =
-                            this.cv.arcLength !==
-                            undefined
-                                ? this.cv.arcLength(
-                                      contour,
-                                      true
-                                  )
-                                : 0;
+                    const rawPoints = this.readContourPoints(contour);
 
-                        const epsilon =
-                            perimeter > 0
-                                ? perimeter * 0.01
-                                : 2.0;
+                    if (rawPoints.length < 3) {
+                        continue;
+                    }
 
-                        this.cv.approxPolyDP(
-                            contour,
-                            approx,
-                            epsilon,
-                            true
+                    this.logRawContourDiagnostic(rawPoints);
+
+                    let points = rawPoints;
+
+                    if (this.cv.approxPolyDP !== undefined) {
+                        const perimeter = this.calculatePerimeter(rawPoints);
+
+                        const epsilon = Math.max(
+                            perimeter * 0.005,
+                            0.5,
                         );
 
-                        let points =
-                            this.readPoints(
-                                approx
+                        const approximated = new this.cv.Mat();
+
+                        try {
+                            this.cv.approxPolyDP(
+                                contour,
+                                approximated,
+                                epsilon,
+                                true,
                             );
 
-                        if (
-                            seed !== undefined
-                        ) {
-                            const beforeCleaning =
-                                points;
+                            const approximatedPoints =
+                                this.readContourPoints(approximated);
 
-                            const afterCleaning =
-                                this.cleanSeedAwarePolygon(
-                                    beforeCleaning,
-                                    seed
+                            if (approximatedPoints.length >= 3) {
+                                points = approximatedPoints;
+
+                                this.logApproximatedContourDiagnostic(
+                                    points,
+                                    epsilon,
                                 );
-
-                            this.logSeedAwareCleaningDiagnostic(
-                                i,
-                                beforeCleaning,
-                                afterCleaning,
-                                seed
-                            );
-
-                            points =
-                                afterCleaning;
+                            }
+                        } finally {
+                            approximated.delete();
                         }
+                    }
 
-                        result.push({
-                            points
-                        });
-                    } else {
-                        let points =
-                            this.readPoints(
-                                contour
-                            );
+                    if (seed !== undefined && points.length >= 3) {
+                        const beforeCleaning = points;
 
-                        if (
-                            seed !== undefined
-                        ) {
-                            const beforeCleaning =
-                                points;
+                        points = this.cleanSeedAwarePolygon(
+                            points,
+                            seed,
+                        );
 
-                            const afterCleaning =
-                                this.cleanSeedAwarePolygon(
-                                    beforeCleaning,
-                                    seed
-                                );
+                        console.log(
+                            "[SeedAwarePolygonDiagnostic]",
+                            {
+                                beforeCleaningCount:
+                                    beforeCleaning.length,
+                                afterCleaningPoints: points,
+                                afterCleaningCount:
+                                    points.length,
+                                removed:
+                                    beforeCleaning.length -
+                                    points.length,
+                            },
+                        );
+                    }
 
-                            this.logSeedAwareCleaningDiagnostic(
-                                i,
-                                beforeCleaning,
-                                afterCleaning,
-                                seed
-                            );
-
-                            points =
-                                afterCleaning;
-                        }
-
-                        result.push({
-                            points
-                        });
+                    if (points.length >= 3) {
+                        results.push({ points });
                     }
                 } finally {
-                    approx.delete();
                     contour.delete();
                 }
             }
 
-            return result;
+            return results;
         } finally {
-            if (
-                binaryImage !==
-                undefined
-            ) {
-                binaryImage.delete();
-            }
-
             hierarchy.delete();
             contours.delete();
+            binaryImage.delete();
         }
     }
 
     private createBinaryImage(
         image: OpenCvMat,
-        seed?: PixelPoint
+        seed?: PixelPoint,
     ): OpenCvMat {
-        const CV_8U =
-            this.cv.CV_8U ?? 0;
-
-        const binary =
-            new this.cv.Mat(
-                image.rows,
-                image.cols,
-                CV_8U
-            );
-
-        try {
-            if (
-                image.ucharPtr ===
-                    undefined ||
-                binary.ucharPtr ===
-                    undefined
-            ) {
-                return binary;
-            }
-
-            if (
-                seed !== undefined
-            ) {
-                this.createSeededMask(
-                    image,
-                    binary,
-                    seed
-                );
-
-                this.cleanSeededMask(
-                    binary
-                );
-            } else {
-                this.createAutomaticMask(
-                    image,
-                    binary
-                );
-            }
-
-            return binary;
-        } catch (error) {
-            binary.delete();
-            throw error;
+        if (seed !== undefined) {
+            return this.createSeedGuidedRegionMask(image, seed);
         }
+
+        return this.createAutomaticGreenMask(image);
     }
 
-    private createSeededMask(
+    private createSeedGuidedRegionMask(
         image: OpenCvMat,
-        binary: OpenCvMat,
-        seed: PixelPoint
-    ): void {
-        if (
-            image.ucharPtr ===
-                undefined ||
-            binary.ucharPtr ===
-                undefined
-        ) {
-            return;
-        }
+        seed: PixelPoint,
+    ): OpenCvMat {
+        const width = image.cols;
+        const height = image.rows;
 
-        const seedX =
-            Math.round(seed.x);
+        const mask = new this.cv.Mat(
+            height,
+            width,
+            this.cv.CV_8U,
+        );
 
-        const seedY =
-            Math.round(seed.y);
+        this.clearMask(mask);
+
+        const seedX = Math.round(seed.x);
+        const seedY = Math.round(seed.y);
 
         if (
             seedX < 0 ||
-            seedX >= image.cols ||
+            seedX >= width ||
             seedY < 0 ||
-            seedY >= image.rows
+            seedY >= height
         ) {
-            throw new Error(
-                "Seed point is outside the image."
-            );
+            return mask;
         }
 
-        const seedPixel =
-            image.ucharPtr(
-                seedY,
-                seedX
-            );
+        const seedColour = this.readPixel(
+            image,
+            seedX,
+            seedY,
+        );
 
-        const seedR =
-            seedPixel[0] ?? 0;
-
-        const seedG =
-            seedPixel[1] ?? 0;
-
-        const seedB =
-            seedPixel[2] ?? 0;
-
-        const seedDominance =
-            seedG -
-            Math.max(
-                seedR,
-                seedB
-            );
-
-        const seedIsGreen =
-            seedG >= 50 &&
-            seedDominance >= 10;
-
-        if (
-            !seedIsGreen
-        ) {
-            this.clearMask(
-                binary
-            );
-
-            return;
+        if (!this.isGreenPixel(seedColour)) {
+            return mask;
         }
 
-        const tolerance = 20;
+        const visited = new Uint8Array(
+            width * height,
+        );
 
-        const lowerR =
-            Math.max(
-                0,
-                seedR - tolerance
-            );
+        const accepted = new Uint8Array(
+            width * height,
+        );
 
-        const lowerG =
-            Math.max(
-                0,
-                seedG - tolerance
-            );
+        const queueX: number[] = [];
+        const queueY: number[] = [];
 
-        const lowerB =
-            Math.max(
-                0,
-                seedB - tolerance
-            );
+        const seedIndex =
+            seedY * width + seedX;
 
-        const upperR =
-            Math.min(
-                255,
-                seedR + tolerance
-            );
+        visited[seedIndex] = 1;
+        accepted[seedIndex] = 1;
 
-        const upperG =
-            Math.min(
-                255,
-                seedG + tolerance
-            );
+        queueX.push(seedX);
+        queueY.push(seedY);
 
-        const upperB =
-            Math.min(
-                255,
-                seedB + tolerance
-            );
+        const neighbourOffsets = [
+            [-1, -1],
+            [0, -1],
+            [1, -1],
+            [-1, 0],
+            [1, 0],
+            [-1, 1],
+            [0, 1],
+            [1, 1],
+        ];
 
-        for (
-            let y = 0;
-            y < image.rows;
-            y += 1
-        ) {
-            for (
-                let x = 0;
-                x < image.cols;
-                x += 1
-            ) {
-                const pixel =
-                    image.ucharPtr(
-                        y,
-                        x
-                    );
+        const localTolerance = 18;
 
-                const r =
-                    pixel[0] ?? 0;
+        while (queueX.length > 0) {
+            const currentX = queueX.shift()!;
+            const currentY = queueY.shift()!;
 
-                const g =
-                    pixel[1] ?? 0;
-
-                const b =
-                    pixel[2] ?? 0;
-
-                const insideColourRange =
-                    r >= lowerR &&
-                    r <= upperR &&
-                    g >= lowerG &&
-                    g <= upperG &&
-                    b >= lowerB &&
-                    b <= upperB;
-
-                const greenDominance =
-                    g -
-                    Math.max(
-                        r,
-                        b
-                    );
-
-                const isGreen =
-                    insideColourRange &&
-                    g >= 50 &&
-                    greenDominance >= 10;
-
-                const output =
-                    binary.ucharPtr(
-                        y,
-                        x
-                    );
-
-                output[0] =
-                    isGreen
-                        ? 255
-                        : 0;
-            }
-        }
-    }
-
-    private cleanSeededMask(
-        binary: OpenCvMat
-    ): void {
-        if (
-            binary.ucharPtr ===
-            undefined
-        ) {
-            return;
-        }
-
-        const rows =
-            binary.rows;
-
-        const cols =
-            binary.cols;
-
-        const values =
-            new Uint8Array(
-                rows * cols
-            );
-
-        for (
-            let y = 0;
-            y < rows;
-            y += 1
-        ) {
-            for (
-                let x = 0;
-                x < cols;
-                x += 1
-            ) {
-                const pixel =
-                    binary.ucharPtr(
-                        y,
-                        x
-                    );
-
-                values[
-                    y * cols + x
-                ] =
-                    pixel[0] ?? 0;
-            }
-        }
-
-        for (
-            let y = 1;
-            y < rows - 1;
-            y += 1
-        ) {
-            for (
-                let x = 1;
-                x < cols - 1;
-                x += 1
-            ) {
-                const index =
-                    y * cols + x;
+            for (const [offsetX, offsetY] of neighbourOffsets) {
+                const nextX = currentX + offsetX;
+                const nextY = currentY + offsetY;
 
                 if (
-                    values[index] === 0
+                    nextX < 0 ||
+                    nextX >= width ||
+                    nextY < 0 ||
+                    nextY >= height
                 ) {
                     continue;
                 }
 
-                let neighbours = 0;
+                const nextIndex =
+                    nextY * width + nextX;
 
-                for (
-                    let dy = -1;
-                    dy <= 1;
-                    dy += 1
-                ) {
-                    for (
-                        let dx = -1;
-                        dx <= 1;
-                        dx += 1
-                    ) {
-                        if (
-                            dx === 0 &&
-                            dy === 0
-                        ) {
-                            continue;
-                        }
-
-                        if (
-                            values[
-                                (y + dy) *
-                                    cols +
-                                    (x + dx)
-                            ] > 0
-                        ) {
-                            neighbours += 1;
-                        }
-                    }
+                if (visited[nextIndex] !== 0) {
+                    continue;
                 }
 
+                visited[nextIndex] = 1;
+
+                const candidateColour =
+                    this.readPixel(
+                        image,
+                        nextX,
+                        nextY,
+                    );
+
                 if (
-                    neighbours === 0
+                    !this.isGreenPixel(
+                        candidateColour,
+                    )
                 ) {
-                    binary.ucharPtr(
+                    continue;
+                }
+
+                const localColour =
+                    this.getLocalAcceptedColour(
+                        image,
+                        nextX,
+                        nextY,
+                        accepted,
+                        width,
+                        height,
+                    );
+
+                if (localColour === undefined) {
+                    continue;
+                }
+
+                const distance =
+                    this.calculateRgbDistance(
+                        candidateColour,
+                        localColour,
+                    );
+
+                if (distance > localTolerance) {
+                    continue;
+                }
+
+                accepted[nextIndex] = 1;
+
+                queueX.push(nextX);
+                queueY.push(nextY);
+
+                this.writeMaskPixel(
+                    mask,
+                    nextX,
+                    nextY,
+                    255,
+                );
+            }
+        }
+
+        this.writeMaskPixel(
+            mask,
+            seedX,
+            seedY,
+            255,
+        );
+
+        return mask;
+    }
+
+    private createAutomaticGreenMask(
+        image: OpenCvMat,
+    ): OpenCvMat {
+        const width = image.cols;
+        const height = image.rows;
+
+        const mask = new this.cv.Mat(
+            height,
+            width,
+            this.cv.CV_8U,
+        );
+
+        this.clearMask(mask);
+
+        for (let y = 0; y < height; y += 1) {
+            for (let x = 0; x < width; x += 1) {
+                const pixel = this.readPixel(
+                    image,
+                    x,
+                    y,
+                );
+
+                if (this.isGreenPixel(pixel)) {
+                    this.writeMaskPixel(
+                        mask,
+                        x,
                         y,
-                        x
-                    )[0] = 0;
+                        255,
+                    );
                 }
             }
         }
+
+        return mask;
     }
 
-    private createAutomaticMask(
+    private isGreenPixel(
+        pixel: readonly number[],
+    ): boolean {
+        const red = pixel[0];
+        const green = pixel[1];
+        const blue = pixel[2];
+
+        return (
+            green >= 50 &&
+            green - Math.max(red, blue) >= 10
+        );
+    }
+
+    private getLocalAcceptedColour(
         image: OpenCvMat,
-        binary: OpenCvMat
+        x: number,
+        y: number,
+        accepted: Uint8Array,
+        width: number,
+        height: number,
+    ): readonly number[] | undefined {
+        let red = 0;
+        let green = 0;
+        let blue = 0;
+        let count = 0;
+
+        for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+            for (
+                let offsetX = -1;
+                offsetX <= 1;
+                offsetX += 1
+            ) {
+                if (
+                    offsetX === 0 &&
+                    offsetY === 0
+                ) {
+                    continue;
+                }
+
+                const neighbourX = x + offsetX;
+                const neighbourY = y + offsetY;
+
+                if (
+                    neighbourX < 0 ||
+                    neighbourX >= width ||
+                    neighbourY < 0 ||
+                    neighbourY >= height
+                ) {
+                    continue;
+                }
+
+                const index =
+                    neighbourY * width +
+                    neighbourX;
+
+                if (accepted[index] === 0) {
+                    continue;
+                }
+
+                const pixel =
+                    this.readPixel(
+                        image,
+                        neighbourX,
+                        neighbourY,
+                    );
+
+                red += pixel[0];
+                green += pixel[1];
+                blue += pixel[2];
+                count += 1;
+            }
+        }
+
+        if (count === 0) {
+            return undefined;
+        }
+
+        return [
+            red / count,
+            green / count,
+            blue / count,
+        ];
+    }
+
+    private calculateRgbDistance(
+        first: readonly number[],
+        second: readonly number[],
+    ): number {
+        const red =
+            first[0] - second[0];
+
+        const green =
+            first[1] - second[1];
+
+        const blue =
+            first[2] - second[2];
+
+        return Math.sqrt(
+            red * red +
+            green * green +
+            blue * blue,
+        );
+    }
+
+    private readPixel(
+        image: OpenCvMat,
+        x: number,
+        y: number,
+    ): readonly number[] {
+        if (image.ucharPtr !== undefined) {
+            const pixel =
+                image.ucharPtr(y, x);
+
+            return [
+                pixel[0],
+                pixel[1],
+                pixel[2],
+            ];
+        }
+
+        throw new Error(
+            "OpenCV image does not expose ucharPtr().",
+        );
+    }
+
+    private writeMaskPixel(
+        mask: OpenCvMat,
+        x: number,
+        y: number,
+        value: number,
     ): void {
-        if (
-            image.ucharPtr ===
-                undefined ||
-            binary.ucharPtr ===
-                undefined
-        ) {
+        if (mask.ucharPtr !== undefined) {
+            mask.ucharPtr(y, x)[0] =
+                value;
             return;
         }
 
-        for (
-            let y = 0;
-            y < image.rows;
-            y += 1
-        ) {
-            for (
-                let x = 0;
-                x < image.cols;
-                x += 1
-            ) {
-                const pixel =
-                    image.ucharPtr(
-                        y,
-                        x
-                    );
-
-                const r =
-                    pixel[0] ?? 0;
-
-                const g =
-                    pixel[1] ?? 0;
-
-                const b =
-                    pixel[2] ?? 0;
-
-                const greenDominance =
-                    g -
-                    Math.max(
-                        r,
-                        b
-                    );
-
-                const isGreen =
-                    g >= 50 &&
-                    greenDominance >= 10;
-
-                const output =
-                    binary.ucharPtr(
-                        y,
-                        x
-                    );
-
-                output[0] =
-                    isGreen
-                        ? 255
-                        : 0;
-            }
-        }
+        throw new Error(
+            "OpenCV mask does not expose ucharPtr().",
+        );
     }
 
     private clearMask(
-        binary: OpenCvMat
+        mask: OpenCvMat,
     ): void {
-        if (
-            binary.ucharPtr ===
-                undefined
-        ) {
-            return;
-        }
-
-        for (
-            let y = 0;
-            y < binary.rows;
-            y += 1
-        ) {
+        for (let y = 0; y < mask.rows; y += 1) {
             for (
                 let x = 0;
-                x < binary.cols;
+                x < mask.cols;
                 x += 1
             ) {
-                const pixel =
-                    binary.ucharPtr(
-                        y,
-                        x
-                    );
-
-                pixel[0] = 0;
+                this.writeMaskPixel(
+                    mask,
+                    x,
+                    y,
+                    0,
+                );
             }
         }
     }
 
-    private cleanSeedAwarePolygon(
-        points: readonly PolygonPoint[],
-        seed: PixelPoint
-    ): readonly PolygonPoint[] {
-        if (
-            points.length < 5
+    private readContourPoints(
+        contour: OpenCvMat,
+    ): PixelPoint[] {
+        if (contour.data32S === undefined) {
+            return [];
+        }
+
+        const values =
+            contour.data32S;
+
+        const points: PixelPoint[] = [];
+
+        for (
+            let index = 0;
+            index + 1 < values.length;
+            index += 2
         ) {
+            points.push({
+                x: values[index],
+                y: values[index + 1],
+            });
+        }
+
+        return points;
+    }
+
+    private calculatePerimeter(
+        points: readonly PixelPoint[],
+    ): number {
+        if (points.length < 2) {
+            return 0;
+        }
+
+        let perimeter = 0;
+
+        for (
+            let index = 0;
+            index < points.length;
+            index += 1
+        ) {
+            const current =
+                points[index];
+
+            const next =
+                points[
+                    (index + 1) %
+                    points.length
+                ];
+
+            const dx =
+                next.x - current.x;
+
+            const dy =
+                next.y - current.y;
+
+            perimeter += Math.sqrt(
+                dx * dx +
+                dy * dy,
+            );
+        }
+
+        return perimeter;
+    }
+
+    private cleanSeedAwarePolygon(
+        points: PixelPoint[],
+        seed: PixelPoint,
+    ): PixelPoint[] {
+        if (points.length < 5) {
             return points;
         }
 
-        const cleaned =
-            [...points];
+        let cleaned = [...points];
 
         let changed = true;
 
@@ -604,138 +572,52 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
             changed = false;
 
             for (
-                let i = 0;
-                i < cleaned.length;
-                i += 1
+                let index = 0;
+                index < cleaned.length;
+                index += 1
             ) {
                 if (
-                    !this.isSuspiciousSeedAwareVertex(
+                    this.isSuspiciousVertex(
                         cleaned,
-                        i,
-                        seed
+                        index,
+                    ) &&
+                    this.isValidRemoval(
+                        cleaned,
+                        index,
+                        seed,
                     )
                 ) {
-                    continue;
+                    cleaned =
+                        cleaned.filter(
+                            (
+                                _,
+                                candidateIndex,
+                            ) =>
+                                candidateIndex !==
+                                index,
+                        );
+
+                    changed = true;
+                    break;
                 }
-
-                const candidate =
-                    cleaned.filter(
-                        (
-                            _,
-                            index
-                        ) =>
-                            index !== i
-                    );
-
-                if (
-                    !this.isValidSeedAwarePolygon(
-                        candidate,
-                        seed
-                    )
-                ) {
-                    continue;
-                }
-
-                if (
-                    this.polygonAreaDifference(
-                        cleaned,
-                        candidate
-                    ) > 0.10
-                ) {
-                    continue;
-                }
-
-                cleaned.splice(
-                    i,
-                    1
-                );
-
-                changed = true;
-                break;
             }
         }
 
         return cleaned;
     }
 
-    private logSeedAwareCleaningDiagnostic(
-        contourIndex: number,
-        before: readonly PolygonPoint[],
-        after: readonly PolygonPoint[],
-        seed: PixelPoint
-    ): void {
-        const afterKeys =
-            new Set(
-                after.map(
-                    point =>
-                        `${point.x},${point.y}`
-                )
-            );
-
-        const removed =
-            before.filter(
-                point =>
-                    !afterKeys.has(
-                        `${point.x},${point.y}`
-                    )
-            );
-
-        console.log(
-            "\n[SeedAwarePolygonDiagnostic]"
-        );
-
-        console.log(
-            "Contour:",
-            contourIndex
-        );
-
-        console.log(
-            "Seed:",
-            seed
-        );
-
-        console.log(
-            "Before cleaning:",
-            before.length,
-            "points"
-        );
-
-        console.log(
-            before
-        );
-
-        console.log(
-            "After cleaning:",
-            after.length,
-            "points"
-        );
-
-        console.log(
-            after
-        );
-
-        console.log(
-            "Removed:",
-            removed.length,
-            "points"
-        );
-
-        console.log(
-            removed
-        );
-    }
-
-    private isSuspiciousSeedAwareVertex(
-        points: readonly PolygonPoint[],
+    private isSuspiciousVertex(
+        points: readonly PixelPoint[],
         index: number,
-        seed: PixelPoint
     ): boolean {
+        if (points.length < 3) {
+            return false;
+        }
+
         const previous =
             points[
-                this.wrapIndex(
-                    index - 1,
-                    points.length
-                )
+                (index - 1 + points.length) %
+                points.length
             ];
 
         const current =
@@ -743,260 +625,84 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
 
         const next =
             points[
-                this.wrapIndex(
-                    index + 1,
-                    points.length
-                )
+                (index + 1) %
+                points.length
             ];
 
+        const lineX =
+            next.x - previous.x;
+
+        const lineY =
+            next.y - previous.y;
+
+        const lineLength =
+            Math.sqrt(
+                lineX * lineX +
+                lineY * lineY,
+            );
+
+        if (lineLength === 0) {
+            return false;
+        }
+
+        const pointX =
+            current.x - previous.x;
+
+        const pointY =
+            current.y - previous.y;
+
+        const perpendicularDistance =
+            Math.abs(
+                lineX * pointY -
+                lineY * pointX,
+            ) / lineLength;
+
+        const previousLength =
+            Math.sqrt(
+                pointX * pointX +
+                pointY * pointY,
+            );
+
+        const nextX =
+            next.x - current.x;
+
+        const nextY =
+            next.y - current.y;
+
+        const nextLength =
+            Math.sqrt(
+                nextX * nextX +
+                nextY * nextY,
+            );
+
         if (
-            previous === undefined ||
-            current === undefined ||
-            next === undefined
+            previousLength < 3 ||
+            nextLength < 3
         ) {
             return false;
         }
 
-        /*
-         * This is turn severity rather than the interior angle.
-         *
-         * Straight boundary:
-         *     interior angle ~= 180°
-         *     turn severity ~= 0°
-         *
-         * Sharp corner:
-         *     interior angle is smaller
-         *     turn severity is larger
-         */
-        const turnSeverity =
-            this.calculateTurnSeverity(
-                previous,
-                current,
-                next
-            );
-
-        if (
-            turnSeverity < 35
-        ) {
-            return false;
-        }
-
-        const previousAngle =
-            this.calculateSeedAngle(
-                previous,
-                seed
-            );
-
-        const currentAngle =
-            this.calculateSeedAngle(
-                current,
-                seed
-            );
-
-        const nextAngle =
-            this.calculateSeedAngle(
-                next,
-                seed
-            );
-
-        const incomingChange =
-            Math.abs(
-                this.normaliseAngleDifference(
-                    currentAngle -
-                        previousAngle
-                )
-            );
-
-        const outgoingChange =
-            Math.abs(
-                this.normaliseAngleDifference(
-                    nextAngle -
-                        currentAngle
-                )
-            );
-
-        const directionChange =
-            Math.abs(
-                incomingChange -
-                    outgoingChange
-            );
-
-        const previousDistance =
-            this.calculateDistanceFromSeed(
-                previous,
-                seed
-            );
-
-        const currentDistance =
-            this.calculateDistanceFromSeed(
-                current,
-                seed
-            );
-
-        const nextDistance =
-            this.calculateDistanceFromSeed(
-                next,
-                seed
-            );
-
-        const surroundingDistance =
-            (
-                previousDistance +
-                nextDistance
-            ) / 2;
-
-        if (
-            surroundingDistance === 0
-        ) {
-            return false;
-        }
-
-        const radialDeviation =
-            Math.abs(
-                currentDistance -
-                    surroundingDistance
-            ) /
-            surroundingDistance;
-
-        return (
-            directionChange >= 25 &&
-            radialDeviation >= 0.12
-        );
+        return perpendicularDistance <= 1.5;
     }
 
-    private calculateSeedAngle(
-        point: PolygonPoint,
-        seed: PixelPoint
-    ): number {
-        return (
-            Math.atan2(
-                point.y - seed.y,
-                point.x - seed.x
-            ) *
-            180 /
-            Math.PI
-        );
-    }
-
-    private calculateDistanceFromSeed(
-        point: PolygonPoint,
-        seed: PixelPoint
-    ): number {
-        return Math.hypot(
-            point.x - seed.x,
-            point.y - seed.y
-        );
-    }
-
-    private calculateTurnSeverity(
-        previous: PolygonPoint,
-        current: PolygonPoint,
-        next: PolygonPoint
-    ): number {
-        const incomingX =
-            previous.x -
-            current.x;
-
-        const incomingY =
-            previous.y -
-            current.y;
-
-        const outgoingX =
-            next.x -
-            current.x;
-
-        const outgoingY =
-            next.y -
-            current.y;
-
-        const incomingLength =
-            Math.hypot(
-                incomingX,
-                incomingY
-            );
-
-        const outgoingLength =
-            Math.hypot(
-                outgoingX,
-                outgoingY
-            );
-
-        if (
-            incomingLength === 0 ||
-            outgoingLength === 0
-        ) {
-            return 0;
-        }
-
-        const cosine =
-            (
-                incomingX *
-                    outgoingX +
-                incomingY *
-                    outgoingY
-            ) /
-            (
-                incomingLength *
-                outgoingLength
-            );
-
-        const clampedCosine =
-            Math.max(
-                -1,
-                Math.min(
-                    1,
-                    cosine
-                )
-            );
-
-        const interiorAngle =
-            Math.acos(
-                clampedCosine
-            ) *
-            180 /
-            Math.PI;
-
-        return Math.max(
-            0,
-            180 -
-                interiorAngle
-        );
-    }
-
-    private normaliseAngleDifference(
-        angle: number
-    ): number {
-        let result =
-            angle;
-
-        while (
-            result > 180
-        ) {
-            result -= 360;
-        }
-
-        while (
-            result < -180
-        ) {
-            result += 360;
-        }
-
-        return result;
-    }
-
-    private isValidSeedAwarePolygon(
-        points: readonly PolygonPoint[],
-        seed: PixelPoint
+    private isValidRemoval(
+        points: readonly PixelPoint[],
+        index: number,
+        seed: PixelPoint,
     ): boolean {
-        if (
-            points.length < 4
-        ) {
+        if (points.length <= 3) {
             return false;
         }
+
+        const candidate =
+            points.filter(
+                (_, candidateIndex) =>
+                    candidateIndex !== index,
+            );
 
         if (
             this.hasDuplicatePoints(
-                points
+                candidate,
             )
         ) {
             return false;
@@ -1005,30 +711,51 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
         if (
             !this.isPointInsidePolygon(
                 seed,
-                points
+                candidate,
             )
         ) {
             return false;
         }
 
-        return true;
+        const originalArea =
+            this.calculatePolygonArea(
+                points,
+            );
+
+        const candidateArea =
+            this.calculatePolygonArea(
+                candidate,
+            );
+
+        if (originalArea === 0) {
+            return false;
+        }
+
+        const relativeAreaChange =
+            Math.abs(
+                candidateArea -
+                    originalArea,
+            ) / originalArea;
+
+        if (
+            relativeAreaChange > 0.1
+        ) {
+            return false;
+        }
+
+        return candidate.length >= 3;
     }
 
     private hasDuplicatePoints(
-        points: readonly PolygonPoint[]
+        points: readonly PixelPoint[],
     ): boolean {
-        const seen =
-            new Set<string>();
+        const seen = new Set<string>();
 
-        for (
-            const point of points
-        ) {
+        for (const point of points) {
             const key =
-                `${point.x},${point.y}`;
+                `${point.x}:${point.y}`;
 
-            if (
-                seen.has(key)
-            ) {
+            if (seen.has(key)) {
                 return true;
             }
 
@@ -1040,182 +767,154 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
 
     private isPointInsidePolygon(
         point: PixelPoint,
-        polygon: readonly PolygonPoint[]
+        polygon: readonly PixelPoint[],
     ): boolean {
         let inside = false;
 
         for (
-            let i = 0,
-                j = polygon.length - 1;
-            i < polygon.length;
-            j = i,
-            i += 1
+            let index = 0;
+            index < polygon.length;
+            index += 1
         ) {
             const current =
-                polygon[i];
+                polygon[index];
 
             const previous =
-                polygon[j];
-
-            if (
-                current === undefined ||
-                previous === undefined
-            ) {
-                continue;
-            }
+                polygon[
+                    (index - 1 +
+                        polygon.length) %
+                        polygon.length
+                ];
 
             const intersects =
-                (
-                    current.y > point.y
-                ) !==
-                    (
-                        previous.y >
-                        point.y
-                    ) &&
+                current.y > point.y !==
+                    previous.y > point.y &&
                 point.x <
-                    (
-                        previous.x -
-                        current.x
-                    ) *
-                        (
-                            point.y -
-                            current.y
-                        ) /
-                        (
-                            previous.y -
-                            current.y
-                        ) +
-                    current.x;
+                    ((previous.x -
+                        current.x) *
+                        (point.y -
+                            current.y)) /
+                        (previous.y -
+                            current.y) +
+                        current.x;
 
-            if (
-                intersects
-            ) {
-                inside =
-                    !inside;
+            if (intersects) {
+                inside = !inside;
             }
         }
 
         return inside;
     }
 
-    private polygonArea(
-        points: readonly PolygonPoint[]
+    private calculatePolygonArea(
+        points: readonly PixelPoint[],
     ): number {
+        if (points.length < 3) {
+            return 0;
+        }
+
         let area = 0;
 
         for (
-            let i = 0;
-            i < points.length;
-            i += 1
+            let index = 0;
+            index < points.length;
+            index += 1
         ) {
             const current =
-                points[i];
+                points[index];
 
             const next =
                 points[
-                    (i + 1) %
-                        points.length
+                    (index + 1) %
+                    points.length
                 ];
 
-            if (
-                current === undefined ||
-                next === undefined
-            ) {
-                continue;
-            }
-
             area +=
-                current.x *
-                    next.y -
-                next.x *
-                    current.y;
+                current.x * next.y -
+                next.x * current.y;
         }
 
-        return Math.abs(
-            area / 2
+        return Math.abs(area) / 2;
+    }
+
+    private getPointBounds(
+        points: readonly PixelPoint[],
+    ) {
+        if (points.length === 0) {
+            return undefined;
+        }
+
+        return {
+            minX: Math.min(
+                ...points.map(
+                    (point) => point.x,
+                ),
+            ),
+            maxX: Math.max(
+                ...points.map(
+                    (point) => point.x,
+                ),
+            ),
+            minY: Math.min(
+                ...points.map(
+                    (point) => point.y,
+                ),
+            ),
+            maxY: Math.max(
+                ...points.map(
+                    (point) => point.y,
+                ),
+            ),
+        };
+    }
+
+    private logRawContourDiagnostic(
+        points: readonly PixelPoint[],
+    ): void {
+        console.log(
+            "[ContourRawDiagnostic]",
+            {
+                rawPointCount:
+                    points.length,
+                rawBounds:
+                    this.getPointBounds(
+                        points,
+                    ),
+                rawPoints: points,
+            },
         );
     }
 
-    private polygonAreaDifference(
-        original: readonly PolygonPoint[],
-        candidate: readonly PolygonPoint[]
-    ): number {
-        const originalArea =
-            this.polygonArea(
-                original
-            );
-
-        if (
-            originalArea === 0
-        ) {
-            return 1;
-        }
-
-        const candidateArea =
-            this.polygonArea(
-                candidate
-            );
-
-        return Math.abs(
-            originalArea -
-                candidateArea
-        ) /
-            originalArea;
-    }
-
-    private wrapIndex(
-        index: number,
-        length: number
-    ): number {
-        return (
-            (
-                index %
-                    length
-            ) +
-            length
-        ) %
-            length;
+    private logApproximatedContourDiagnostic(
+        points: readonly PixelPoint[],
+        epsilon: number,
+    ): void {
+        console.log(
+            "[ContourApproximationDiagnostic]",
+            {
+                epsilon,
+                approximatedPointCount:
+                    points.length,
+                approximatedBounds:
+                    this.getPointBounds(
+                        points,
+                    ),
+                approximatedPoints:
+                    points,
+            },
+        );
     }
 
     private validateImage(
-        image: OpenCvMat
+        image: OpenCvMat,
     ): void {
         if (
             image.rows <= 0 ||
             image.cols <= 0
         ) {
             throw new Error(
-                "OpenCV image must have positive dimensions."
+                "OpenCV image must have positive dimensions.",
             );
         }
-    }
-
-    private readPoints(
-        contour: OpenCvMat
-    ): readonly {
-        x: number;
-        y: number;
-    }[] {
-        const data =
-            contour.data32S ??
-            new Int32Array();
-
-        const points: {
-            x: number;
-            y: number;
-        }[] = [];
-
-        for (
-            let i = 0;
-            i + 1 < data.length;
-            i += 2
-        ) {
-            points.push({
-                x: data[i] ?? 0,
-                y: data[i + 1] ?? 0
-            });
-        }
-
-        return points;
     }
 }

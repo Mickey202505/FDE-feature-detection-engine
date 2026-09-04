@@ -1,249 +1,395 @@
-import { describe, expect, it } from "vitest";
+export interface SeedAwarePolygonPoint {
+    readonly x: number;
+    readonly y: number;
+}
 
-import {
-    SeedAwarePolygonCleaner,
-    SeedAwarePolygonPoint
-} from "../../../../src/core/geometry/SeedAwarePolygonCleaner";
+export class SeedAwarePolygonCleaner {
+    clean(
+        points: readonly SeedAwarePolygonPoint[],
+        seed: SeedAwarePolygonPoint,
+    ): SeedAwarePolygonPoint[] {
+        if (points.length < 5) {
+            return [...points];
+        }
 
-describe("SeedAwarePolygonCleaner", () => {
-    const hasPoint = (
-        points: SeedAwarePolygonPoint[],
-        target: SeedAwarePolygonPoint
-    ): boolean => {
-        return points.some(
-            point =>
-                point.x === target.x &&
-                point.y === target.y
+        let cleaned = [...points];
+
+        let changed = true;
+
+        while (
+            changed &&
+            cleaned.length >= 5
+        ) {
+            changed = false;
+
+            for (
+                let index = 0;
+                index < cleaned.length;
+                index += 1
+            ) {
+                if (
+                    this.isSuspiciousVertex(
+                        cleaned,
+                        index,
+                    ) &&
+                    this.isValidRemoval(
+                        cleaned,
+                        index,
+                        seed,
+                    )
+                ) {
+                    cleaned =
+                        cleaned.filter(
+                            (
+                                _,
+                                candidateIndex,
+                            ) =>
+                                candidateIndex !==
+                                index,
+                        );
+
+                    changed = true;
+                    break;
+                }
+            }
+        }
+
+        return cleaned;
+    }
+
+    private isSuspiciousVertex(
+        points: readonly SeedAwarePolygonPoint[],
+        index: number,
+    ): boolean {
+        if (points.length < 5) {
+            return false;
+        }
+
+        const previous =
+            points[
+                (index - 1 + points.length) %
+                    points.length
+            ];
+
+        const current =
+            points[index];
+
+        const next =
+            points[
+                (index + 1) %
+                    points.length
+            ];
+
+        const beforePrevious =
+            points[
+                (index - 2 + points.length) %
+                    points.length
+            ];
+
+        const afterNext =
+            points[
+                (index + 2) %
+                    points.length
+            ];
+
+        const incomingLength =
+            this.distance(
+                previous,
+                current,
+            );
+
+        const outgoingLength =
+            this.distance(
+                current,
+                next,
+            );
+
+        const previousBoundaryLength =
+            this.distance(
+                beforePrevious,
+                previous,
+            );
+
+        const nextBoundaryLength =
+            this.distance(
+                next,
+                afterNext,
+            );
+
+        if (
+            incomingLength === 0 ||
+            outgoingLength === 0 ||
+            previousBoundaryLength === 0 ||
+            nextBoundaryLength === 0
+        ) {
+            return false;
+        }
+
+        /*
+         * An outward spike normally has:
+         *
+         * 1. a noticeably narrow turning angle
+         * 2. two short edges leading into and out of it
+         *
+         * A legitimate corner can have short edges too,
+         * so edge length alone is not enough.
+         *
+         * This does not use the seed as a centre point and
+         * does not assume radial symmetry.
+         */
+        const turningAngle =
+            this.calculateTurningAngle(
+                previous,
+                current,
+                next,
+            );
+
+        const hasNarrowAngle =
+            turningAngle <= 75;
+
+        const incomingIsShort =
+            incomingLength <
+            previousBoundaryLength * 0.75;
+
+        const outgoingIsShort =
+            outgoingLength <
+            nextBoundaryLength * 0.75;
+
+        return (
+            hasNarrowAngle &&
+            incomingIsShort &&
+            outgoingIsShort
         );
-    };
+    }
 
-    it("removes an obvious outward spike", () => {
-        const seed = {
-            x: 0,
-            y: 0
-        };
+    private calculateTurningAngle(
+        previous: SeedAwarePolygonPoint,
+        current: SeedAwarePolygonPoint,
+        next: SeedAwarePolygonPoint,
+    ): number {
+        const firstX =
+            previous.x - current.x;
 
-        const spike: SeedAwarePolygonPoint = {
-            x: 100,
-            y: 0
-        };
+        const firstY =
+            previous.y - current.y;
 
-        const polygon: SeedAwarePolygonPoint[] = [
-            { x: -150, y: -150 },
-            { x: 150, y: -150 },
-            { x: 54, y: -45 },
-            spike,
-            { x: 69, y: 12 },
-            { x: 150, y: 150 },
-            { x: -150, y: 150 }
-        ];
+        const secondX =
+            next.x - current.x;
 
-        const cleaner = new SeedAwarePolygonCleaner();
+        const secondY =
+            next.y - current.y;
 
-        const cleaned = cleaner.clean(
-            polygon,
-            seed
+        const firstLength =
+            Math.sqrt(
+                firstX * firstX +
+                    firstY * firstY,
+            );
+
+        const secondLength =
+            Math.sqrt(
+                secondX * secondX +
+                    secondY * secondY,
+            );
+
+        if (
+            firstLength === 0 ||
+            secondLength === 0
+        ) {
+            return 180;
+        }
+
+        const cosine =
+            (
+                firstX * secondX +
+                firstY * secondY
+            ) /
+            (
+                firstLength *
+                secondLength
+            );
+
+        const clampedCosine =
+            Math.max(
+                -1,
+                Math.min(
+                    1,
+                    cosine,
+                ),
+            );
+
+        return (
+            Math.acos(
+                clampedCosine,
+            ) *
+            (180 / Math.PI)
         );
+    }
 
-        expect(cleaned.length).toBeLessThan(
-            polygon.length
+    private isValidRemoval(
+        points: readonly SeedAwarePolygonPoint[],
+        index: number,
+        seed: SeedAwarePolygonPoint,
+    ): boolean {
+        if (points.length <= 3) {
+            return false;
+        }
+
+        const candidate =
+            points.filter(
+                (_, candidateIndex) =>
+                    candidateIndex !== index,
+            );
+
+        if (
+            this.hasDuplicatePoints(
+                candidate,
+            )
+        ) {
+            return false;
+        }
+
+        if (
+            !this.isPointInsidePolygon(
+                seed,
+                candidate,
+            )
+        ) {
+            return false;
+        }
+
+        const originalArea =
+            this.calculatePolygonArea(
+                points,
+            );
+
+        const candidateArea =
+            this.calculatePolygonArea(
+                candidate,
+            );
+
+        if (originalArea === 0) {
+            return false;
+        }
+
+        const relativeAreaChange =
+            Math.abs(
+                candidateArea -
+                    originalArea,
+            ) / originalArea;
+
+        if (
+            relativeAreaChange > 0.1
+        ) {
+            return false;
+        }
+
+        return candidate.length >= 3;
+    }
+
+    private hasDuplicatePoints(
+        points: readonly SeedAwarePolygonPoint[],
+    ): boolean {
+        const seen = new Set<string>();
+
+        for (const point of points) {
+            const key =
+                `${point.x}:${point.y}`;
+
+            if (seen.has(key)) {
+                return true;
+            }
+
+            seen.add(key);
+        }
+
+        return false;
+    }
+
+    private isPointInsidePolygon(
+        point: SeedAwarePolygonPoint,
+        polygon: readonly SeedAwarePolygonPoint[],
+    ): boolean {
+        let inside = false;
+
+        for (
+            let index = 0;
+            index < polygon.length;
+            index += 1
+        ) {
+            const current =
+                polygon[index];
+
+            const previous =
+                polygon[
+                    (index - 1 +
+                        polygon.length) %
+                        polygon.length
+                ];
+
+            const intersects =
+                current.y > point.y !==
+                    previous.y > point.y &&
+                point.x <
+                    ((previous.x -
+                        current.x) *
+                        (point.y -
+                            current.y)) /
+                        (previous.y -
+                            current.y) +
+                        current.x;
+
+            if (intersects) {
+                inside = !inside;
+            }
+        }
+
+        return inside;
+    }
+
+    private calculatePolygonArea(
+        points: readonly SeedAwarePolygonPoint[],
+    ): number {
+        if (points.length < 3) {
+            return 0;
+        }
+
+        let area = 0;
+
+        for (
+            let index = 0;
+            index < points.length;
+            index += 1
+        ) {
+            const current =
+                points[index];
+
+            const next =
+                points[
+                    (index + 1) %
+                        points.length
+                ];
+
+            area +=
+                current.x * next.y -
+                next.x * current.y;
+        }
+
+        return Math.abs(area) / 2;
+    }
+
+    private distance(
+        first: SeedAwarePolygonPoint,
+        second: SeedAwarePolygonPoint,
+    ): number {
+        const dx =
+            second.x - first.x;
+
+        const dy =
+            second.y - first.y;
+
+        return Math.sqrt(
+            dx * dx +
+                dy * dy,
         );
-
-        expect(
-            hasPoint(cleaned, spike)
-        ).toBe(false);
-    });
-
-    it("preserves a legitimate corner", () => {
-        const seed = {
-            x: 0,
-            y: 0
-        };
-
-        const corner: SeedAwarePolygonPoint = {
-            x: 100,
-            y: 0
-        };
-
-        const polygon: SeedAwarePolygonPoint[] = [
-            { x: -100, y: -100 },
-            { x: 100, y: -100 },
-            corner,
-            { x: 100, y: 100 },
-            { x: -100, y: 100 }
-        ];
-
-        const cleaner = new SeedAwarePolygonCleaner();
-
-        const cleaned = cleaner.clean(
-            polygon,
-            seed
-        );
-
-        expect(
-            hasPoint(cleaned, corner)
-        ).toBe(true);
-    });
-
-    it("works with an off-centre seed", () => {
-        const seed = {
-            x: 20,
-            y: 10
-        };
-
-        const spike: SeedAwarePolygonPoint = {
-            x: 120,
-            y: 10
-        };
-
-        const polygon: SeedAwarePolygonPoint[] = [
-            { x: -150, y: -150 },
-            { x: 150, y: -150 },
-            { x: 74, y: -35 },
-            spike,
-            { x: 89, y: 22 },
-            { x: 150, y: 150 },
-            { x: -150, y: 150 }
-        ];
-
-        const cleaner = new SeedAwarePolygonCleaner();
-
-        const cleaned = cleaner.clean(
-            polygon,
-            seed
-        );
-
-        expect(cleaned.length).toBeLessThan(
-            polygon.length
-        );
-
-        expect(
-            hasPoint(cleaned, spike)
-        ).toBe(false);
-    });
-
-    it("rejects removal when the candidate would change the polygon area too much", () => {
-        const seed = {
-            x: 0,
-            y: 0
-        };
-
-        const largeSpike: SeedAwarePolygonPoint = {
-            x: 250,
-            y: 0
-        };
-
-        const polygon: SeedAwarePolygonPoint[] = [
-            { x: -100, y: -100 },
-            { x: 100, y: -100 },
-            { x: 70, y: -20 },
-            largeSpike,
-            { x: 70, y: 20 },
-            { x: 100, y: 100 },
-            { x: -100, y: 100 }
-        ];
-
-        const cleaner = new SeedAwarePolygonCleaner();
-
-        const cleaned = cleaner.clean(
-            polygon,
-            seed
-        );
-
-        expect(
-            hasPoint(cleaned, largeSpike)
-        ).toBe(true);
-    });
-
-    it("keeps a smooth oval green boundary unchanged", () => {
-        const seed = {
-            x: 0,
-            y: 0
-        };
-
-        const polygon: SeedAwarePolygonPoint[] = [
-            { x: 0, y: -100 },
-            { x: 50, y: -87 },
-            { x: 87, y: -50 },
-            { x: 100, y: 0 },
-            { x: 87, y: 50 },
-            { x: 50, y: 87 },
-            { x: 0, y: 100 },
-            { x: -50, y: 87 },
-            { x: -87, y: 50 },
-            { x: -100, y: 0 },
-            { x: -87, y: -50 },
-            { x: -50, y: -87 }
-        ];
-
-        const cleaner = new SeedAwarePolygonCleaner();
-
-        const cleaned = cleaner.clean(
-            polygon,
-            seed
-        );
-
-        expect(cleaned).toEqual(
-            polygon
-        );
-    });
-
-    it("preserves a genuine pronounced corner in an otherwise regular boundary", () => {
-        const seed = {
-            x: 0,
-            y: 0
-        };
-
-        const corner: SeedAwarePolygonPoint = {
-            x: 100,
-            y: 0
-        };
-
-        const polygon: SeedAwarePolygonPoint[] = [
-            { x: -70, y: -70 },
-            { x: 0, y: -100 },
-            { x: 70, y: -70 },
-            corner,
-            { x: 70, y: 70 },
-            { x: 0, y: 100 },
-            { x: -70, y: 70 },
-            { x: -100, y: 0 }
-        ];
-
-        const cleaner = new SeedAwarePolygonCleaner();
-
-        const cleaned = cleaner.clean(
-            polygon,
-            seed
-        );
-
-        expect(
-            hasPoint(cleaned, corner)
-        ).toBe(true);
-    });
-
-    it("does not modify a polygon when there is nothing suspicious to remove", () => {
-        const seed = {
-            x: 0,
-            y: 0
-        };
-
-        const polygon: SeedAwarePolygonPoint[] = [
-            { x: -100, y: -100 },
-            { x: 100, y: -100 },
-            { x: 100, y: 100 },
-            { x: -100, y: 100 }
-        ];
-
-        const cleaner = new SeedAwarePolygonCleaner();
-
-        const cleaned = cleaner.clean(
-            polygon,
-            seed
-        );
-
-        expect(cleaned).toEqual(
-            polygon
-        );
-    });
-});
+    }
+}

@@ -1,7 +1,5 @@
 import type {
     OpenCvAdapter,
-} from "./OpenCvAdapter";
-import type {
     OpenCvContour,
     OpenCvContourCollection,
     OpenCvImageData,
@@ -9,55 +7,85 @@ import type {
     OpenCvPoint,
     OpenCvRuntime,
 } from "./OpenCvTypes";
-import type { PixelPoint } from "./PixelPoint";
 
-export class OpenCvJsAdapter implements OpenCvAdapter {
-    constructor(private readonly cv: OpenCvRuntime) {}
+import type { PixelPoint } from "../../core/geometry/SeedAwarePolygonCleaner";
+
+export class OpenCvJsAdapter
+    implements OpenCvAdapter
+{
+    private readonly cv: OpenCvRuntime;
+
+    constructor(cv: OpenCvRuntime) {
+        this.cv = cv;
+    }
 
     findContours(
-        image: OpenCvMat,
+        image: OpenCvImageData,
         seed?: PixelPoint,
-    ): readonly OpenCvContour[] {
+    ): OpenCvContourCollection {
         this.validateImage(image);
 
-        const binaryImage = this.createBinaryImage(image, seed);
-        const contours = new this.cv.MatVector();
-        const hierarchy = new this.cv.Mat();
+        const mask =
+            this.createBinaryImage(
+                image,
+                seed,
+            );
+
+        const contours =
+            new this.cv.MatVector();
+
+        const hierarchy =
+            new this.cv.Mat();
 
         try {
             this.cv.findContours(
-                binaryImage,
+                mask,
                 contours,
                 hierarchy,
                 this.cv.RETR_EXTERNAL,
                 this.cv.CHAIN_APPROX_SIMPLE,
             );
 
-            const results: OpenCvContour[] = [];
+            const detectedContours: OpenCvContour[] =
+                [];
 
-            for (let index = 0; index < contours.size(); index += 1) {
-                const contour = contours.get(index);
+            for (
+                let index = 0;
+                index < contours.size();
+                index += 1
+            ) {
+                const contour =
+                    contours.get(index);
 
                 try {
-                    const rawPoints = this.readContourPoints(contour);
-
-                    if (rawPoints.length < 3) {
-                        continue;
-                    }
-
-                    this.logRawContourDiagnostic(rawPoints);
-
-                    let points = rawPoints;
-
-                    if (this.cv.approxPolyDP !== undefined) {
-                        const perimeter = this.calculatePerimeter(rawPoints);
-
-                        const epsilon = Math.max(
-                            perimeter * 0.005,
-                            0.5,
+                    let points =
+                        this.readContourPoints(
+                            contour,
                         );
 
-                        const approximated = new this.cv.Mat();
+                    this.logRawContourDiagnostic(
+                        points,
+                    );
+
+                    if (
+                        points.length >= 3 &&
+                        this.cv.arcLength &&
+                        this.cv.approxPolyDP
+                    ) {
+                        const perimeter =
+                            this.calculatePerimeter(
+                                points,
+                            );
+
+                        const epsilon =
+                            Math.max(
+                                perimeter *
+                                    0.005,
+                                0.5,
+                            );
+
+                        const approximated =
+                            new this.cv.Mat();
 
                         try {
                             this.cv.approxPolyDP(
@@ -67,122 +95,159 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
                                 true,
                             );
 
-                            const approximatedPoints =
-                                this.readContourPoints(approximated);
-
-                            if (approximatedPoints.length >= 3) {
-                                points = approximatedPoints;
-
-                                this.logApproximatedContourDiagnostic(
-                                    points,
-                                    epsilon,
+                            points =
+                                this.readContourPoints(
+                                    approximated,
                                 );
-                            }
+
+                            this.logApproximatedContourDiagnostic(
+                                points,
+                                epsilon,
+                            );
                         } finally {
-                            approximated.delete();
+                            if (
+                                typeof approximated.delete ===
+                                "function"
+                            ) {
+                                approximated.delete();
+                            }
                         }
                     }
 
-                    if (seed !== undefined && points.length >= 3) {
-                        const beforeCleaning = points;
-
-                        points = this.cleanSeedAwarePolygon(
-                            points,
-                            seed,
-                        );
-
-                        console.log(
-                            "[SeedAwarePolygonDiagnostic]",
-                            {
-                                beforeCleaningCount:
-                                    beforeCleaning.length,
-                                afterCleaningPoints: points,
-                                afterCleaningCount:
-                                    points.length,
-                                removed:
-                                    beforeCleaning.length -
-                                    points.length,
-                            },
-                        );
+                    if (
+                        seed &&
+                        points.length >= 3
+                    ) {
+                        points =
+                            this.cleanSeedAwarePolygon(
+                                points,
+                                seed,
+                            );
                     }
 
-                    if (points.length >= 3) {
-                        results.push({ points });
+                    if (
+                        points.length >= 3
+                    ) {
+                        detectedContours.push({
+                            points,
+                        });
                     }
                 } finally {
-                    contour.delete();
+                    if (
+                        contour &&
+                        typeof contour.delete ===
+                        "function"
+                    ) {
+                        contour.delete();
+                    }
                 }
             }
 
-            return results;
+            return {
+                contours:
+                    detectedContours,
+            };
         } finally {
-            hierarchy.delete();
-            contours.delete();
-            binaryImage.delete();
+            if (
+                typeof contours.delete ===
+                "function"
+            ) {
+                contours.delete();
+            }
+
+            if (
+                typeof hierarchy.delete ===
+                "function"
+            ) {
+                hierarchy.delete();
+            }
+
+            if (
+                typeof mask.delete ===
+                "function"
+            ) {
+                mask.delete();
+            }
         }
     }
 
     private createBinaryImage(
-        image: OpenCvMat,
+        image: OpenCvImageData,
         seed?: PixelPoint,
     ): OpenCvMat {
-        if (seed !== undefined) {
-            return this.createSeedGuidedRegionMask(image, seed);
+        if (seed) {
+            return this.createSeedGuidedRegionMask(
+                image,
+                seed,
+            );
         }
 
-        return this.createAutomaticGreenMask(image);
+        return this.createAutomaticGreenMask(
+            image,
+        );
     }
 
     private createSeedGuidedRegionMask(
-        image: OpenCvMat,
+        image: OpenCvImageData,
         seed: PixelPoint,
     ): OpenCvMat {
-        const width = image.cols;
-        const height = image.rows;
-
-        const mask = new this.cv.Mat(
-            height,
-            width,
-            this.cv.CV_8U,
-        );
+        const mask =
+            new this.cv.Mat(
+                image.height,
+                image.width,
+                this.cv.CV_8UC1,
+            );
 
         this.clearMask(mask);
 
-        const seedX = Math.round(seed.x);
-        const seedY = Math.round(seed.y);
+        const seedX =
+            Math.round(seed.x);
+
+        const seedY =
+            Math.round(seed.y);
 
         if (
             seedX < 0 ||
-            seedX >= width ||
+            seedX >= image.width ||
             seedY < 0 ||
-            seedY >= height
+            seedY >= image.height
         ) {
             return mask;
         }
 
-        const seedColour = this.readPixel(
-            image,
-            seedX,
-            seedY,
-        );
+        const seedColour =
+            this.readPixel(
+                image,
+                seedX,
+                seedY,
+            );
 
-        if (!this.isGreenPixel(seedColour)) {
+        if (
+            !this.isGreenPixel(
+                seedColour,
+            )
+        ) {
             return mask;
         }
 
-        const visited = new Uint8Array(
-            width * height,
-        );
+        const visited =
+            new Uint8Array(
+                image.width *
+                    image.height,
+            );
 
-        const accepted = new Uint8Array(
-            width * height,
-        );
+        const accepted =
+            new Uint8Array(
+                image.width *
+                    image.height,
+            );
 
         const queueX: number[] = [];
         const queueY: number[] = [];
 
         const seedIndex =
-            seedY * width + seedX;
+            seedY * image.width +
+            seedX;
 
         visited[seedIndex] = 1;
         accepted[seedIndex] = 1;
@@ -190,44 +255,90 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
         queueX.push(seedX);
         queueY.push(seedY);
 
-        const neighbourOffsets = [
-            [-1, -1],
-            [0, -1],
-            [1, -1],
-            [-1, 0],
-            [1, 0],
-            [-1, 1],
-            [0, 1],
-            [1, 1],
-        ];
-
+        /*
+         * Local colour continuity controls how
+         * far a candidate pixel may differ from
+         * the already accepted neighbourhood.
+         */
         const localTolerance = 18;
 
-        while (queueX.length > 0) {
-            const currentX = queueX.shift()!;
-            const currentY = queueY.shift()!;
+        /*
+         * The seed guard prevents the region from
+         * gradually drifting through large colour
+         * changes and eventually leaking into
+         * surrounding turf.
+         */
+        const seedTolerance = 30;
 
-            for (const [offsetX, offsetY] of neighbourOffsets) {
-                const nextX = currentX + offsetX;
-                const nextY = currentY + offsetY;
+        /*
+         * Diagnostic values only.
+         *
+         * These do not affect the detection result.
+         * They tell us how far the accepted region
+         * actually travels from the original seed
+         * colour on the real golf image.
+         */
+        let maximumSeedDistance = 0;
+
+        let maximumSeedDistancePoint:
+            PixelPoint | undefined;
+
+        const neighbourOffsets =
+            [
+                [-1, -1],
+                [0, -1],
+                [1, -1],
+                [-1, 0],
+                [1, 0],
+                [-1, 1],
+                [0, 1],
+                [1, 1],
+            ];
+
+        while (
+            queueX.length > 0
+        ) {
+            const currentX =
+                queueX.shift()!;
+
+            const currentY =
+                queueY.shift()!;
+
+            for (
+                const [
+                    offsetX,
+                    offsetY,
+                ] of neighbourOffsets
+            ) {
+                const nextX =
+                    currentX +
+                    offsetX;
+
+                const nextY =
+                    currentY +
+                    offsetY;
 
                 if (
                     nextX < 0 ||
-                    nextX >= width ||
+                    nextX >= image.width ||
                     nextY < 0 ||
-                    nextY >= height
+                    nextY >= image.height
                 ) {
                     continue;
                 }
 
-                const nextIndex =
-                    nextY * width + nextX;
+                const index =
+                    nextY *
+                        image.width +
+                    nextX;
 
-                if (visited[nextIndex] !== 0) {
+                if (
+                    visited[index] !== 0
+                ) {
                     continue;
                 }
 
-                visited[nextIndex] = 1;
+                visited[index] = 1;
 
                 const candidateColour =
                     this.readPixel(
@@ -244,34 +355,62 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
                     continue;
                 }
 
-                const localColour =
-                    this.getLocalAcceptedColour(
-                        image,
-                        nextX,
-                        nextY,
-                        accepted,
-                        width,
-                        height,
+                const seedDistance =
+                    this.calculateRgbDistance(
+                        candidateColour,
+                        seedColour,
                     );
 
-                if (localColour === undefined) {
+                /*
+                 * Diagnostic only.
+                 *
+                 * We record the furthest candidate
+                 * colour we encounter before the
+                 * seed-distance check rejects it.
+                 */
+                if (
+                    seedDistance >
+                    maximumSeedDistance
+                ) {
+                    maximumSeedDistance =
+                        seedDistance;
+
+                    maximumSeedDistancePoint =
+                        {
+                            x: nextX,
+                            y: nextY,
+                        };
+                }
+
+                if (
+                    seedDistance >
+                    seedTolerance
+                ) {
                     continue;
                 }
 
-                const distance =
+                const localColour =
+                    this.getLocalAcceptedColour(
+                        image,
+                        accepted,
+                        nextX,
+                        nextY,
+                    );
+
+                const localDistance =
                     this.calculateRgbDistance(
                         candidateColour,
                         localColour,
                     );
 
-                if (distance > localTolerance) {
+                if (
+                    localDistance >
+                    localTolerance
+                ) {
                     continue;
                 }
 
-                accepted[nextIndex] = 1;
-
-                queueX.push(nextX);
-                queueY.push(nextY);
+                accepted[index] = 1;
 
                 this.writeMaskPixel(
                     mask,
@@ -279,42 +418,65 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
                     nextY,
                     255,
                 );
+
+                queueX.push(nextX);
+                queueY.push(nextY);
             }
         }
 
-        this.writeMaskPixel(
-            mask,
-            seedX,
-            seedY,
-            255,
+        /*
+         * Diagnostic only.
+         *
+         * This does not change the mask.
+         */
+        console.log(
+            "[SeedGrowthDiagnostic]",
+            {
+                seed,
+                seedColour,
+                seedTolerance,
+                maximumSeedDistance,
+                maximumSeedDistancePoint,
+            },
         );
 
         return mask;
     }
 
     private createAutomaticGreenMask(
-        image: OpenCvMat,
+        image: OpenCvImageData,
     ): OpenCvMat {
-        const width = image.cols;
-        const height = image.rows;
-
-        const mask = new this.cv.Mat(
-            height,
-            width,
-            this.cv.CV_8U,
-        );
+        const mask =
+            new this.cv.Mat(
+                image.height,
+                image.width,
+                this.cv.CV_8UC1,
+            );
 
         this.clearMask(mask);
 
-        for (let y = 0; y < height; y += 1) {
-            for (let x = 0; x < width; x += 1) {
-                const pixel = this.readPixel(
-                    image,
-                    x,
-                    y,
-                );
+        for (
+            let y = 0;
+            y < image.height;
+            y += 1
+        ) {
+            for (
+                let x = 0;
+                x < image.width;
+                x += 1
+            ) {
+                const colour =
+                    this.readPixel(
+                        image,
+                        x,
+                        y,
+                    );
 
-                if (this.isGreenPixel(pixel)) {
+                if (
+                    this.isGreenPixel(
+                        colour,
+                    )
+                ) {
                     this.writeMaskPixel(
                         mask,
                         x,
@@ -328,33 +490,92 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
         return mask;
     }
 
-    private isGreenPixel(
-        pixel: readonly number[],
-    ): boolean {
-        const red = pixel[0];
-        const green = pixel[1];
-        const blue = pixel[2];
+    private readPixel(
+        image: OpenCvImageData,
+        x: number,
+        y: number,
+    ): {
+        r: number;
+        g: number;
+        b: number;
+    } {
+        const index =
+            (y * image.width + x) * 4;
 
-        return (
-            green >= 50 &&
-            green - Math.max(red, blue) >= 10
-        );
+        return {
+            r: image.data[index],
+            g: image.data[index + 1],
+            b: image.data[index + 2],
+        };
+    }
+
+    private writeMaskPixel(
+        mask: OpenCvMat,
+        x: number,
+        y: number,
+        value: number,
+    ): void {
+        if (
+            typeof mask.ucharPtr ===
+            "function"
+        ) {
+            mask.ucharPtr(y, x)[0] =
+                value;
+            return;
+        }
+
+        if (
+            mask.data &&
+            typeof mask.data[
+                y * mask.cols + x
+            ] !== "undefined"
+        ) {
+            mask.data[
+                y * mask.cols + x
+            ] = value;
+        }
+    }
+
+    private clearMask(
+        mask: OpenCvMat,
+    ): void {
+        if (
+            typeof mask.setTo ===
+            "function"
+        ) {
+            mask.setTo(
+                new this.cv.Scalar(
+                    0,
+                ),
+            );
+            return;
+        }
+
+        if (mask.data) {
+            mask.data.fill(0);
+        }
     }
 
     private getLocalAcceptedColour(
-        image: OpenCvMat,
+        image: OpenCvImageData,
+        accepted: Uint8Array,
         x: number,
         y: number,
-        accepted: Uint8Array,
-        width: number,
-        height: number,
-    ): readonly number[] | undefined {
-        let red = 0;
-        let green = 0;
-        let blue = 0;
+    ): {
+        r: number;
+        g: number;
+        b: number;
+    } {
+        let redTotal = 0;
+        let greenTotal = 0;
+        let blueTotal = 0;
         let count = 0;
 
-        for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+        for (
+            let offsetY = -1;
+            offsetY <= 1;
+            offsetY += 1
+        ) {
             for (
                 let offsetX = -1;
                 offsetX <= 1;
@@ -367,148 +588,140 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
                     continue;
                 }
 
-                const neighbourX = x + offsetX;
-                const neighbourY = y + offsetY;
+                const neighbourX =
+                    x + offsetX;
+
+                const neighbourY =
+                    y + offsetY;
 
                 if (
                     neighbourX < 0 ||
-                    neighbourX >= width ||
+                    neighbourX >=
+                        image.width ||
                     neighbourY < 0 ||
-                    neighbourY >= height
+                    neighbourY >=
+                        image.height
                 ) {
                     continue;
                 }
 
                 const index =
-                    neighbourY * width +
+                    neighbourY *
+                        image.width +
                     neighbourX;
 
-                if (accepted[index] === 0) {
+                if (
+                    accepted[index] ===
+                    0
+                ) {
                     continue;
                 }
 
-                const pixel =
+                const colour =
                     this.readPixel(
                         image,
                         neighbourX,
                         neighbourY,
                     );
 
-                red += pixel[0];
-                green += pixel[1];
-                blue += pixel[2];
+                redTotal += colour.r;
+                greenTotal += colour.g;
+                blueTotal += colour.b;
                 count += 1;
             }
         }
 
         if (count === 0) {
-            return undefined;
+            return this.readPixel(
+                image,
+                x,
+                y,
+            );
         }
 
-        return [
-            red / count,
-            green / count,
-            blue / count,
-        ];
+        return {
+            r: redTotal / count,
+            g: greenTotal / count,
+            b: blueTotal / count,
+        };
     }
 
     private calculateRgbDistance(
-        first: readonly number[],
-        second: readonly number[],
+        first: {
+            r: number;
+            g: number;
+            b: number;
+        },
+        second: {
+            r: number;
+            g: number;
+            b: number;
+        },
     ): number {
         const red =
-            first[0] - second[0];
+            first.r - second.r;
 
         const green =
-            first[1] - second[1];
+            first.g - second.g;
 
         const blue =
-            first[2] - second[2];
+            first.b - second.b;
 
         return Math.sqrt(
             red * red +
-            green * green +
-            blue * blue,
+                green * green +
+                blue * blue,
         );
     }
 
-    private readPixel(
-        image: OpenCvMat,
-        x: number,
-        y: number,
-    ): readonly number[] {
-        if (image.ucharPtr !== undefined) {
-            const pixel =
-                image.ucharPtr(y, x);
-
-            return [
-                pixel[0],
-                pixel[1],
-                pixel[2],
-            ];
-        }
-
-        throw new Error(
-            "OpenCV image does not expose ucharPtr().",
+    private isGreenPixel(
+        colour: {
+            r: number;
+            g: number;
+            b: number;
+        },
+    ): boolean {
+        return (
+            colour.g >= 50 &&
+            colour.g -
+                Math.max(
+                    colour.r,
+                    colour.b,
+                ) >= 10
         );
-    }
-
-    private writeMaskPixel(
-        mask: OpenCvMat,
-        x: number,
-        y: number,
-        value: number,
-    ): void {
-        if (mask.ucharPtr !== undefined) {
-            mask.ucharPtr(y, x)[0] =
-                value;
-            return;
-        }
-
-        throw new Error(
-            "OpenCV mask does not expose ucharPtr().",
-        );
-    }
-
-    private clearMask(
-        mask: OpenCvMat,
-    ): void {
-        for (let y = 0; y < mask.rows; y += 1) {
-            for (
-                let x = 0;
-                x < mask.cols;
-                x += 1
-            ) {
-                this.writeMaskPixel(
-                    mask,
-                    x,
-                    y,
-                    0,
-                );
-            }
-        }
     }
 
     private readContourPoints(
         contour: OpenCvMat,
     ): PixelPoint[] {
-        if (contour.data32S === undefined) {
-            return [];
+        const points: PixelPoint[] =
+            [];
+
+        if (
+            !contour.data32S ||
+            typeof contour.rows !==
+                "number"
+        ) {
+            return points;
         }
 
-        const values =
-            contour.data32S;
-
-        const points: PixelPoint[] = [];
-
         for (
-            let index = 0;
-            index + 1 < values.length;
-            index += 2
+            let row = 0;
+            row < contour.rows;
+            row += 1
         ) {
+            const offset =
+                row * 2;
+
             points.push({
-                x: values[index],
-                y: values[index + 1],
+                x:
+                    contour.data32S[
+                        offset
+                    ],
+                y:
+                    contour.data32S[
+                        offset + 1
+                    ],
             });
         }
 
@@ -535,7 +748,7 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
             const next =
                 points[
                     (index + 1) %
-                    points.length
+                        points.length
                 ];
 
             const dx =
@@ -545,8 +758,7 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
                 next.y - current.y;
 
             perimeter += Math.sqrt(
-                dx * dx +
-                dy * dy,
+                dx * dx + dy * dy,
             );
         }
 
@@ -554,11 +766,11 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
     }
 
     private cleanSeedAwarePolygon(
-        points: PixelPoint[],
+        points: readonly PixelPoint[],
         seed: PixelPoint,
     ): PixelPoint[] {
         if (points.length < 5) {
-            return points;
+            return [...points];
         }
 
         let cleaned = [...points];
@@ -616,8 +828,9 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
 
         const previous =
             points[
-                (index - 1 + points.length) %
-                points.length
+                (index - 1 +
+                    points.length) %
+                    points.length
             ];
 
         const current =
@@ -626,7 +839,7 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
         const next =
             points[
                 (index + 1) %
-                points.length
+                    points.length
             ];
 
         const lineX =
@@ -638,7 +851,7 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
         const lineLength =
             Math.sqrt(
                 lineX * lineX +
-                lineY * lineY,
+                    lineY * lineY,
             );
 
         if (lineLength === 0) {
@@ -654,13 +867,13 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
         const perpendicularDistance =
             Math.abs(
                 lineX * pointY -
-                lineY * pointX,
+                    lineY * pointX,
             ) / lineLength;
 
         const previousLength =
             Math.sqrt(
                 pointX * pointX +
-                pointY * pointY,
+                    pointY * pointY,
             );
 
         const nextX =
@@ -672,7 +885,7 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
         const nextLength =
             Math.sqrt(
                 nextX * nextX +
-                nextY * nextY,
+                    nextY * nextY,
             );
 
         if (
@@ -682,7 +895,10 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
             return false;
         }
 
-        return perpendicularDistance <= 1.5;
+        return (
+            perpendicularDistance <=
+            1.5
+        );
     }
 
     private isValidRemoval(
@@ -735,7 +951,8 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
             Math.abs(
                 candidateArea -
                     originalArea,
-            ) / originalArea;
+            ) /
+            originalArea;
 
         if (
             relativeAreaChange > 0.1
@@ -749,7 +966,8 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
     private hasDuplicatePoints(
         points: readonly PixelPoint[],
     ): boolean {
-        const seen = new Set<string>();
+        const seen =
+            new Set<string>();
 
         for (const point of points) {
             const key =
@@ -790,13 +1008,15 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
                 current.y > point.y !==
                     previous.y > point.y &&
                 point.x <
-                    ((previous.x -
-                        current.x) *
+                    (
+                        (previous.x -
+                            current.x) *
                         (point.y -
-                            current.y)) /
+                            current.y)
+                    ) /
                         (previous.y -
                             current.y) +
-                        current.x;
+                    current.x;
 
             if (intersects) {
                 inside = !inside;
@@ -826,7 +1046,7 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
             const next =
                 points[
                     (index + 1) %
-                    points.length
+                        points.length
                 ];
 
             area +=
@@ -839,32 +1059,48 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
 
     private getPointBounds(
         points: readonly PixelPoint[],
-    ) {
+    ): {
+        minX: number;
+        maxX: number;
+        minY: number;
+        maxY: number;
+    } | null {
         if (points.length === 0) {
-            return undefined;
+            return null;
+        }
+
+        let minX = points[0].x;
+        let maxX = points[0].x;
+        let minY = points[0].y;
+        let maxY = points[0].y;
+
+        for (const point of points) {
+            minX = Math.min(
+                minX,
+                point.x,
+            );
+
+            maxX = Math.max(
+                maxX,
+                point.x,
+            );
+
+            minY = Math.min(
+                minY,
+                point.y,
+            );
+
+            maxY = Math.max(
+                maxY,
+                point.y,
+            );
         }
 
         return {
-            minX: Math.min(
-                ...points.map(
-                    (point) => point.x,
-                ),
-            ),
-            maxX: Math.max(
-                ...points.map(
-                    (point) => point.x,
-                ),
-            ),
-            minY: Math.min(
-                ...points.map(
-                    (point) => point.y,
-                ),
-            ),
-            maxY: Math.max(
-                ...points.map(
-                    (point) => point.y,
-                ),
-            ),
+            minX,
+            maxX,
+            minY,
+            maxY,
         };
     }
 
@@ -872,15 +1108,13 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
         points: readonly PixelPoint[],
     ): void {
         console.log(
-            "[ContourRawDiagnostic]",
+            "[RawContourDiagnostic]",
             {
-                rawPointCount:
-                    points.length,
-                rawBounds:
+                pointCount: points.length,
+                bounds:
                     this.getPointBounds(
                         points,
                     ),
-                rawPoints: points,
             },
         );
     }
@@ -890,30 +1124,48 @@ export class OpenCvJsAdapter implements OpenCvAdapter {
         epsilon: number,
     ): void {
         console.log(
-            "[ContourApproximationDiagnostic]",
+            "[ApproximatedContourDiagnostic]",
             {
+                pointCount: points.length,
                 epsilon,
-                approximatedPointCount:
-                    points.length,
-                approximatedBounds:
+                bounds:
                     this.getPointBounds(
                         points,
                     ),
-                approximatedPoints:
-                    points,
             },
         );
     }
 
     private validateImage(
-        image: OpenCvMat,
+        image: OpenCvImageData,
     ): void {
         if (
-            image.rows <= 0 ||
-            image.cols <= 0
+            !image ||
+            !Number.isInteger(
+                image.width,
+            ) ||
+            !Number.isInteger(
+                image.height,
+            ) ||
+            image.width <= 0 ||
+            image.height <= 0
         ) {
             throw new Error(
-                "OpenCV image must have positive dimensions.",
+                "Invalid image dimensions.",
+            );
+        }
+
+        const expectedLength =
+            image.width *
+            image.height *
+            4;
+
+        if (
+            image.data.length !==
+            expectedLength
+        ) {
+            throw new Error(
+                "Image data length does not match image dimensions.",
             );
         }
     }

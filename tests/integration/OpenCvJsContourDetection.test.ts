@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { PNG } from "pngjs";
 
 import type {
     OpenCvImageData,
@@ -30,6 +32,25 @@ function createRgbaImage(
         width,
         height,
         data,
+    };
+}
+
+function loadRealGolfGreenImage(): OpenCvImageData {
+    const file =
+        readFileSync(
+            "tests/fixtures/golf-green.png",
+        );
+
+    const png =
+        PNG.sync.read(file);
+
+    return {
+        width: png.width,
+        height: png.height,
+        data:
+            new Uint8ClampedArray(
+                png.data,
+            ),
     };
 }
 
@@ -128,7 +149,12 @@ describe("OpenCvJs green detection", () => {
                 if (x >= 20 && x <= 79 && y >= 20 && y <= 79) {
                     const variation = (x + y) % 10;
 
-                    return [40 + variation, 180 + variation, 40 + variation, 255];
+                    return [
+                        40 + variation,
+                        180 + variation,
+                        40 + variation,
+                        255,
+                    ];
                 }
 
                 return [220, 220, 220, 255];
@@ -216,7 +242,12 @@ describe("OpenCvJs green detection", () => {
                 if (x >= 20 && x <= 99 && y >= 20 && y <= 79) {
                     const variation = Math.round((x - 20) * 0.4);
 
-                    return [40 + variation, 160 + variation, 40 + variation, 255];
+                    return [
+                        40 + variation,
+                        160 + variation,
+                        40 + variation,
+                        255,
+                    ];
                 }
 
                 return [80, 80, 80, 255];
@@ -321,6 +352,80 @@ describe("OpenCvJs green detection", () => {
             expect(Math.abs(bounds.maxX - 109)).toBeLessThanOrEqual(2);
             expect(Math.abs(bounds.minY - 25)).toBeLessThanOrEqual(2);
             expect(Math.abs(bounds.maxY - 84)).toBeLessThanOrEqual(2);
+        } finally {
+            image.delete();
+        }
+    });
+
+    it("diagnoses the detector on the real golf green image", () => {
+        const adapter = new OpenCvJsAdapter(openCvRuntime);
+
+        const imageData = loadRealGolfGreenImage();
+
+        console.log(
+            "[RealImageDimensions]",
+            {
+                width: imageData.width,
+                height: imageData.height
+            }
+        );
+        
+        const image =
+            openCvRuntime.matFromImageData!(
+                imageData,
+            );
+
+        try {
+            const seed: PixelPoint = {
+                x: 700,
+                y: 550,
+            };
+
+            const contours =
+                adapter.findContours(
+                    image,
+                    seed,
+                );
+
+            console.log(
+                "[RealGreenDiagnostic]",
+                {
+                    imageWidth:
+                        imageData.width,
+                    imageHeight:
+                        imageData.height,
+                    seed,
+                    contourCount:
+                        contours.length,
+                },
+            );
+
+            expect(
+                contours.length,
+            ).toBeGreaterThan(0);
+
+            const contour =
+                largestContour(
+                    contours,
+                );
+
+            expect(
+                contour,
+            ).toBeDefined();
+
+            const bounds =
+                getBounds(
+                    contour!.points,
+                );
+
+            console.log(
+                "[RealGreenDiagnostic] largest contour",
+                {
+                    pointCount:
+                        contour!.points.length,
+                    bounds,
+                },
+            );
         } finally {
             image.delete();
         }

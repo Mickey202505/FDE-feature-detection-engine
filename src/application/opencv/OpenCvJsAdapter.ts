@@ -20,14 +20,17 @@ export class OpenCvJsAdapter
     }
 
     findContours(
-        image: OpenCvImageData,
+        image: OpenCvImageData | OpenCvMat,
         seed?: PixelPoint,
     ): OpenCvContourCollection {
-        this.validateImage(image);
+        const normalizedImage =
+            this.normalizeImage(image);
+
+        this.validateImage(normalizedImage);
 
         const mask =
             this.createBinaryImage(
-                image,
+                normalizedImage,
                 seed,
             );
 
@@ -1134,6 +1137,39 @@ export class OpenCvJsAdapter
                     ),
             },
         );
+    }
+
+    private normalizeImage(
+        image: OpenCvImageData | OpenCvMat,
+    ): OpenCvImageData {
+        if (
+            image &&
+            Number.isInteger(
+                (image as OpenCvImageData).width,
+            ) &&
+            Number.isInteger(
+                (image as OpenCvImageData).height,
+            )
+        ) {
+            return image as OpenCvImageData;
+        }
+
+        const mat = image as OpenCvMat;
+
+        if (
+            mat &&
+            Number.isInteger(mat.cols) &&
+            Number.isInteger(mat.rows) &&
+            mat.data
+        ) {
+            return {
+                width: mat.cols,
+                height: mat.rows,
+                data: mat.data as Uint8ClampedArray,
+            };
+        }
+
+        return image as OpenCvImageData;
     }
 
     private validateImage(

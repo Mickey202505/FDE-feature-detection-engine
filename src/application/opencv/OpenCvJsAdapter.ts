@@ -146,10 +146,8 @@ export class OpenCvJsAdapter
                 }
             }
 
-            return {
-                contours:
-                    detectedContours,
-            };
+            return detectedContours;
+            
         } finally {
             if (
                 typeof contours.delete ===

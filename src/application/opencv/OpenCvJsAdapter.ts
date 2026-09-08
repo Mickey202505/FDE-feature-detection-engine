@@ -20,17 +20,14 @@ export class OpenCvJsAdapter
     }
 
     findContours(
-        image: OpenCvImageData | OpenCvMat,
+        image: OpenCvImageData,
         seed?: PixelPoint,
     ): OpenCvContourCollection {
-        const normalizedImage =
-            this.normalizeImage(image);
-
-        this.validateImage(normalizedImage);
+        this.validateImage(image);
 
         const mask =
             this.createBinaryImage(
-                normalizedImage,
+                image,
                 seed,
             );
 
@@ -147,7 +144,6 @@ export class OpenCvJsAdapter
             }
 
             return detectedContours;
-            
         } finally {
             if (
                 typeof contours.delete ===
@@ -264,20 +260,11 @@ export class OpenCvJsAdapter
         const localTolerance = 18;
 
         /*
-         * The seed guard prevents the region from
-         * gradually drifting through large colour
-         * changes and eventually leaking into
-         * surrounding turf.
-         */
-        const seedTolerance = 30;
-
-        /*
          * Diagnostic values only.
          *
          * These do not affect the detection result.
          * They tell us how far the accepted region
-         * actually travels from the original seed
-         * colour on the real golf image.
+         * travels from the original seed colour.
          */
         let maximumSeedDistance = 0;
 
@@ -365,9 +352,9 @@ export class OpenCvJsAdapter
                 /*
                  * Diagnostic only.
                  *
-                 * We record the furthest candidate
-                 * colour we encounter before the
-                 * seed-distance check rejects it.
+                 * We record the furthest colour
+                 * encountered from the original
+                 * seed colour.
                  */
                 if (
                     seedDistance >
@@ -383,13 +370,18 @@ export class OpenCvJsAdapter
                         };
                 }
 
-                if (
-                    seedDistance >
-                    seedTolerance
-                ) {
-                    continue;
-                }
-
+                /*
+                 * Important:
+                 *
+                 * We deliberately do NOT reject the
+                 * candidate based on its distance from
+                 * the original seed colour.
+                 *
+                 * The region is allowed to follow a
+                 * gradual colour change. The local
+                 * neighbourhood check below is what
+                 * controls continuity.
+                 */
                 const localColour =
                     this.getLocalAcceptedColour(
                         image,
@@ -435,7 +427,7 @@ export class OpenCvJsAdapter
             {
                 seed,
                 seedColour,
-                seedTolerance,
+                localTolerance,
                 maximumSeedDistance,
                 maximumSeedDistancePoint,
             },
@@ -1135,39 +1127,6 @@ export class OpenCvJsAdapter
                     ),
             },
         );
-    }
-
-    private normalizeImage(
-        image: OpenCvImageData | OpenCvMat,
-    ): OpenCvImageData {
-        if (
-            image &&
-            Number.isInteger(
-                (image as OpenCvImageData).width,
-            ) &&
-            Number.isInteger(
-                (image as OpenCvImageData).height,
-            )
-        ) {
-            return image as OpenCvImageData;
-        }
-
-        const mat = image as OpenCvMat;
-
-        if (
-            mat &&
-            Number.isInteger(mat.cols) &&
-            Number.isInteger(mat.rows) &&
-            mat.data
-        ) {
-            return {
-                width: mat.cols,
-                height: mat.rows,
-                data: mat.data as Uint8ClampedArray,
-            };
-        }
-
-        return image as OpenCvImageData;
     }
 
     private validateImage(

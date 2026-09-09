@@ -3,12 +3,14 @@ import type {
     OpenCvContourCollection,
     OpenCvImageData,
     OpenCvMat,
+    OpenCvPoint,
     OpenCvRuntime,
 } from "./OpenCvTypes";
 
 import type { PixelPoint } from "../../core/geometry/SeedAwarePolygonCleaner";
 
-export class OpenCvJsAdapter {
+export class OpenCvJsAdapter
+{
     private readonly cv: OpenCvRuntime;
 
     constructor(cv: OpenCvRuntime) {
@@ -20,7 +22,7 @@ export class OpenCvJsAdapter {
         seed?: PixelPoint,
     ): OpenCvContourCollection {
         const normalizedImage =
-            this.normalizeImageInput(image);
+            this.normalizeImage(image);
 
         this.validateImage(normalizedImage);
 
@@ -104,9 +106,8 @@ export class OpenCvJsAdapter {
                             );
                         } finally {
                             if (
-                                approximated &&
                                 typeof approximated.delete ===
-                                    "function"
+                                "function"
                             ) {
                                 approximated.delete();
                             }
@@ -135,7 +136,7 @@ export class OpenCvJsAdapter {
                     if (
                         contour &&
                         typeof contour.delete ===
-                            "function"
+                        "function"
                     ) {
                         contour.delete();
                     }
@@ -165,88 +166,6 @@ export class OpenCvJsAdapter {
                 mask.delete();
             }
         }
-    }
-
-    private normalizeImageInput(
-        image: OpenCvImageData | OpenCvMat,
-    ): OpenCvImageData {
-        if (
-            "width" in image &&
-            "height" in image &&
-            "data" in image
-        ) {
-            return image;
-        }
-
-        const width = image.cols;
-        const height = image.rows;
-
-        if (
-            !Number.isInteger(width) ||
-            !Number.isInteger(height) ||
-            width <= 0 ||
-            height <= 0
-        ) {
-            throw new Error(
-                "Invalid OpenCV Mat dimensions.",
-            );
-        }
-
-        if (
-            typeof image.ucharPtr !==
-            "function"
-        ) {
-            throw new Error(
-                "OpenCV Mat does not support ucharPtr.",
-            );
-        }
-
-        const data =
-            new Uint8ClampedArray(
-                width *
-                    height *
-                    4,
-            );
-
-        for (
-            let y = 0;
-            y < height;
-            y += 1
-        ) {
-            for (
-                let x = 0;
-                x < width;
-                x += 1
-            ) {
-                const pixel =
-                    image.ucharPtr(
-                        y,
-                        x,
-                    );
-
-                const index =
-                    (y * width + x) *
-                    4;
-
-                data[index] =
-                    pixel[0] ?? 0;
-
-                data[index + 1] =
-                    pixel[1] ?? 0;
-
-                data[index + 2] =
-                    pixel[2] ?? 0;
-
-                data[index + 3] =
-                    pixel[3] ?? 255;
-            }
-        }
-
-        return {
-            width,
-            height,
-            data,
-        };
     }
 
     private createBinaryImage(
@@ -330,13 +249,6 @@ export class OpenCvJsAdapter {
         visited[seedIndex] = 1;
         accepted[seedIndex] = 1;
 
-        this.writeMaskPixel(
-            mask,
-            seedX,
-            seedY,
-            255,
-        );
-
         queueX.push(seedX);
         queueY.push(seedY);
 
@@ -346,6 +258,11 @@ export class OpenCvJsAdapter {
          * the already accepted neighbourhood.
          */
         const localTolerance = 18;
+
+        const seedTolerance = 30;
+        const gradualTransitionSeedTolerance = 60;
+        const gradualTransitionLocalTolerance = 8;
+        const minimumCloseAcceptedNeighbours = 3;
 
         /*
          * Diagnostic values only.
@@ -491,6 +408,42 @@ export class OpenCvJsAdapter {
                     continue;
                 }
 
+                /*
+                 * Most candidates must remain reasonably
+                 * close to the original seed colour.
+                 *
+                 * A small exception allows a genuinely
+                 * gradual transition to continue when the
+                 * candidate is strongly supported by several
+                 * already accepted neighbours. This keeps the
+                 * useful gradual-transition behaviour without
+                 * allowing unlimited colour drift through turf.
+                 */
+                const closeNeighbourCount =
+                    this.countCloseAcceptedNeighbours(
+                        image,
+                        accepted,
+                        nextX,
+                        nextY,
+                        candidateColour,
+                        localTolerance,
+                    );
+
+                if (
+                    seedDistance >
+                    seedTolerance &&
+                    (
+                        seedDistance >
+                            gradualTransitionSeedTolerance ||
+                        closeNeighbourCount <
+                            minimumCloseAcceptedNeighbours ||
+                        localDistance >
+                            gradualTransitionLocalTolerance
+                    )
+                ) {
+                    continue;
+                }
+
                 accepted[index] = 1;
 
                 this.writeMaskPixel(
@@ -516,6 +469,10 @@ export class OpenCvJsAdapter {
                 seed,
                 seedColour,
                 localTolerance,
+                seedTolerance,
+                gradualTransitionSeedTolerance,
+                gradualTransitionLocalTolerance,
+                minimumCloseAcceptedNeighbours,
                 maximumSeedDistance,
                 maximumSeedDistancePoint,
             },
@@ -581,8 +538,7 @@ export class OpenCvJsAdapter {
         b: number;
     } {
         const index =
-            (y * image.width + x) *
-            4;
+            (y * image.width + x) * 4;
 
         return {
             r: image.data[index],
@@ -598,44 +554,110 @@ export class OpenCvJsAdapter {
         value: number,
     ): void {
         if (
-            typeof mask.ucharPtr !==
+            typeof mask.ucharPtr ===
             "function"
         ) {
-            throw new Error(
-                "OpenCV mask does not support ucharPtr.",
-            );
+            mask.ucharPtr(y, x)[0] =
+                value;
         }
-
-        mask.ucharPtr(y, x)[0] =
-            value;
     }
 
     private clearMask(
         mask: OpenCvMat,
     ): void {
         if (
-            typeof mask.ucharPtr !==
+            typeof mask.ucharPtr ===
             "function"
         ) {
-            throw new Error(
-                "OpenCV mask does not support ucharPtr.",
-            );
-        }
-
-        for (
-            let y = 0;
-            y < mask.rows;
-            y += 1
-        ) {
             for (
-                let x = 0;
-                x < mask.cols;
-                x += 1
+                let y = 0;
+                y < mask.rows;
+                y += 1
             ) {
-                mask.ucharPtr(y, x)[0] =
-                    0;
+                for (
+                    let x = 0;
+                    x < mask.cols;
+                    x += 1
+                ) {
+                    mask.ucharPtr(y, x)[0] =
+                        0;
+                }
             }
         }
+    }
+
+    private countCloseAcceptedNeighbours(
+        image: OpenCvImageData,
+        accepted: Uint8Array,
+        x: number,
+        y: number,
+        candidateColour: {
+            r: number;
+            g: number;
+            b: number;
+        },
+        tolerance: number,
+    ): number {
+        let count = 0;
+
+        for (
+            let offsetY = -1;
+            offsetY <= 1;
+            offsetY += 1
+        ) {
+            for (
+                let offsetX = -1;
+                offsetX <= 1;
+                offsetX += 1
+            ) {
+                if (
+                    offsetX === 0 &&
+                    offsetY === 0
+                ) {
+                    continue;
+                }
+
+                const neighbourX =
+                    x + offsetX;
+                const neighbourY =
+                    y + offsetY;
+
+                if (
+                    neighbourX < 0 ||
+                    neighbourX >= image.width ||
+                    neighbourY < 0 ||
+                    neighbourY >= image.height
+                ) {
+                    continue;
+                }
+
+                const index =
+                    neighbourY * image.width +
+                    neighbourX;
+
+                if (accepted[index] === 0) {
+                    continue;
+                }
+
+                const colour =
+                    this.readPixel(
+                        image,
+                        neighbourX,
+                        neighbourY,
+                    );
+
+                if (
+                    this.calculateRgbDistance(
+                        candidateColour,
+                        colour,
+                    ) <= tolerance
+                ) {
+                    count += 1;
+                }
+            }
+        }
+
+        return count;
     }
 
     private getLocalAcceptedColour(
@@ -1093,8 +1115,8 @@ export class OpenCvJsAdapter {
                     (
                         (previous.x -
                             current.x) *
-                            (point.y -
-                                current.y)
+                        (point.y -
+                            current.y)
                     ) /
                         (previous.y -
                             current.y) +
@@ -1216,6 +1238,74 @@ export class OpenCvJsAdapter {
                     ),
             },
         );
+    }
+
+    private normalizeImage(
+        image: OpenCvImageData | OpenCvMat,
+    ): OpenCvImageData {
+        if (
+            image &&
+            Number.isInteger(
+                (image as OpenCvImageData).width,
+            ) &&
+            Number.isInteger(
+                (image as OpenCvImageData).height,
+            ) &&
+            (image as OpenCvImageData).data
+        ) {
+            return image as OpenCvImageData;
+        }
+
+        const mat = image as OpenCvMat;
+
+        if (
+            mat &&
+            Number.isInteger(mat.cols) &&
+            Number.isInteger(mat.rows) &&
+            typeof mat.ucharPtr ===
+                "function"
+        ) {
+            const width = mat.cols;
+            const height = mat.rows;
+            const data =
+                new Uint8ClampedArray(
+                    width * height * 4,
+                );
+
+            for (
+                let y = 0;
+                y < height;
+                y += 1
+            ) {
+                for (
+                    let x = 0;
+                    x < width;
+                    x += 1
+                ) {
+                    const pixel =
+                        mat.ucharPtr(y, x);
+                    const index =
+                        (y * width + x) * 4;
+
+                    data[index] =
+                        pixel[0] ?? 0;
+                    data[index + 1] =
+                        pixel[1] ?? 0;
+                    data[index + 2] =
+                        pixel[2] ?? 0;
+                    data[index + 3] =
+                        pixel[3] ?? 255;
+                }
+            }
+
+            return {
+                width,
+                height,
+                data,
+            };
+        }
+
+        return image as OpenCvImageData;
     }
 
     private validateImage(

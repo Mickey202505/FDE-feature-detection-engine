@@ -262,7 +262,7 @@ export class OpenCvJsAdapter
         const seedTolerance = 30;
         const gradualTransitionSeedTolerance = 60;
         const gradualTransitionLocalTolerance = 8;
-        const minimumCloseAcceptedNeighbours = 3;
+        const minimumCloseAcceptedNeighbours = 5;
 
         /*
          * Diagnostic values only.

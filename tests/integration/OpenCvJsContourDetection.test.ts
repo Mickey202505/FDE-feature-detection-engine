@@ -430,4 +430,64 @@ describe("OpenCvJs green detection", () => {
             image.delete();
         }
     });
+    it("produces a similar real-green boundary from another interior seed", () => {
+        const adapter = new OpenCvJsAdapter(openCvRuntime);
+        const imageData = loadRealGolfGreenImage();
+
+        const image =
+            openCvRuntime.matFromImageData!(
+                imageData,
+            );
+
+        try {
+            const seeds: PixelPoint[] = [
+                { x: 450, y: 350 },
+                { x: 520, y: 300 },
+            ];
+
+            const boundsBySeed = seeds.map((seed) => {
+                const contours =
+                    adapter.findContours(
+                        image,
+                        seed,
+                    );
+
+                expect(contours.length).toBeGreaterThan(0);
+
+                const contour =
+                    largestContour(contours);
+
+                expect(contour).toBeDefined();
+
+                const bounds =
+                    getBounds(contour!.points);
+
+                console.log(
+                    "[RealGreenSeedComparison]",
+                    { seed, bounds },
+                );
+
+                return bounds;
+            });
+
+            const first = boundsBySeed[0];
+            const second = boundsBySeed[1];
+
+            expect(
+                Math.abs(first.minX - second.minX),
+            ).toBeLessThanOrEqual(30);
+            expect(
+                Math.abs(first.maxX - second.maxX),
+            ).toBeLessThanOrEqual(30);
+            expect(
+                Math.abs(first.minY - second.minY),
+            ).toBeLessThanOrEqual(30);
+            expect(
+                Math.abs(first.maxY - second.maxY),
+            ).toBeLessThanOrEqual(30);
+        } finally {
+            image.delete();
+        }
+    });
+
 });

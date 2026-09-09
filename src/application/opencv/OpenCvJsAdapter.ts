@@ -1,18 +1,14 @@
 import type {
-    OpenCvAdapter,
     OpenCvContour,
     OpenCvContourCollection,
     OpenCvImageData,
     OpenCvMat,
-    OpenCvPoint,
     OpenCvRuntime,
 } from "./OpenCvTypes";
 
 import type { PixelPoint } from "../../core/geometry/SeedAwarePolygonCleaner";
 
-export class OpenCvJsAdapter
-    implements OpenCvAdapter
-{
+export class OpenCvJsAdapter {
     private readonly cv: OpenCvRuntime;
 
     constructor(cv: OpenCvRuntime) {
@@ -20,14 +16,17 @@ export class OpenCvJsAdapter
     }
 
     findContours(
-        image: OpenCvImageData,
+        image: OpenCvImageData | OpenCvMat,
         seed?: PixelPoint,
     ): OpenCvContourCollection {
-        this.validateImage(image);
+        const normalizedImage =
+            this.normalizeImageInput(image);
+
+        this.validateImage(normalizedImage);
 
         const mask =
             this.createBinaryImage(
-                image,
+                normalizedImage,
                 seed,
             );
 
@@ -69,7 +68,6 @@ export class OpenCvJsAdapter
 
                     if (
                         points.length >= 3 &&
-                        this.cv.arcLength &&
                         this.cv.approxPolyDP
                     ) {
                         const perimeter =
@@ -106,8 +104,9 @@ export class OpenCvJsAdapter
                             );
                         } finally {
                             if (
+                                approximated &&
                                 typeof approximated.delete ===
-                                "function"
+                                    "function"
                             ) {
                                 approximated.delete();
                             }
@@ -136,7 +135,7 @@ export class OpenCvJsAdapter
                     if (
                         contour &&
                         typeof contour.delete ===
-                        "function"
+                            "function"
                     ) {
                         contour.delete();
                     }
@@ -168,6 +167,88 @@ export class OpenCvJsAdapter
         }
     }
 
+    private normalizeImageInput(
+        image: OpenCvImageData | OpenCvMat,
+    ): OpenCvImageData {
+        if (
+            "width" in image &&
+            "height" in image &&
+            "data" in image
+        ) {
+            return image;
+        }
+
+        const width = image.cols;
+        const height = image.rows;
+
+        if (
+            !Number.isInteger(width) ||
+            !Number.isInteger(height) ||
+            width <= 0 ||
+            height <= 0
+        ) {
+            throw new Error(
+                "Invalid OpenCV Mat dimensions.",
+            );
+        }
+
+        if (
+            typeof image.ucharPtr !==
+            "function"
+        ) {
+            throw new Error(
+                "OpenCV Mat does not support ucharPtr.",
+            );
+        }
+
+        const data =
+            new Uint8ClampedArray(
+                width *
+                    height *
+                    4,
+            );
+
+        for (
+            let y = 0;
+            y < height;
+            y += 1
+        ) {
+            for (
+                let x = 0;
+                x < width;
+                x += 1
+            ) {
+                const pixel =
+                    image.ucharPtr(
+                        y,
+                        x,
+                    );
+
+                const index =
+                    (y * width + x) *
+                    4;
+
+                data[index] =
+                    pixel[0] ?? 0;
+
+                data[index + 1] =
+                    pixel[1] ?? 0;
+
+                data[index + 2] =
+                    pixel[2] ?? 0;
+
+                data[index + 3] =
+                    pixel[3] ?? 255;
+            }
+        }
+
+        return {
+            width,
+            height,
+            data,
+        };
+    }
+
     private createBinaryImage(
         image: OpenCvImageData,
         seed?: PixelPoint,
@@ -192,7 +273,7 @@ export class OpenCvJsAdapter
             new this.cv.Mat(
                 image.height,
                 image.width,
-                this.cv.CV_8UC1,
+                this.cv.CV_8U,
             );
 
         this.clearMask(mask);
@@ -248,6 +329,13 @@ export class OpenCvJsAdapter
 
         visited[seedIndex] = 1;
         accepted[seedIndex] = 1;
+
+        this.writeMaskPixel(
+            mask,
+            seedX,
+            seedY,
+            255,
+        );
 
         queueX.push(seedX);
         queueY.push(seedY);
@@ -443,7 +531,7 @@ export class OpenCvJsAdapter
             new this.cv.Mat(
                 image.height,
                 image.width,
-                this.cv.CV_8UC1,
+                this.cv.CV_8U,
             );
 
         this.clearMask(mask);
@@ -493,7 +581,8 @@ export class OpenCvJsAdapter
         b: number;
     } {
         const index =
-            (y * image.width + x) * 4;
+            (y * image.width + x) *
+            4;
 
         return {
             r: image.data[index],
@@ -509,43 +598,43 @@ export class OpenCvJsAdapter
         value: number,
     ): void {
         if (
-            typeof mask.ucharPtr ===
+            typeof mask.ucharPtr !==
             "function"
         ) {
-            mask.ucharPtr(y, x)[0] =
-                value;
-            return;
+            throw new Error(
+                "OpenCV mask does not support ucharPtr.",
+            );
         }
 
-        if (
-            mask.data &&
-            typeof mask.data[
-                y * mask.cols + x
-            ] !== "undefined"
-        ) {
-            mask.data[
-                y * mask.cols + x
-            ] = value;
-        }
+        mask.ucharPtr(y, x)[0] =
+            value;
     }
 
     private clearMask(
         mask: OpenCvMat,
     ): void {
         if (
-            typeof mask.setTo ===
+            typeof mask.ucharPtr !==
             "function"
         ) {
-            mask.setTo(
-                new this.cv.Scalar(
-                    0,
-                ),
+            throw new Error(
+                "OpenCV mask does not support ucharPtr.",
             );
-            return;
         }
 
-        if (mask.data) {
-            mask.data.fill(0);
+        for (
+            let y = 0;
+            y < mask.rows;
+            y += 1
+        ) {
+            for (
+                let x = 0;
+                x < mask.cols;
+                x += 1
+            ) {
+                mask.ucharPtr(y, x)[0] =
+                    0;
+            }
         }
     }
 
@@ -1004,8 +1093,8 @@ export class OpenCvJsAdapter
                     (
                         (previous.x -
                             current.x) *
-                        (point.y -
-                            current.y)
+                            (point.y -
+                                current.y)
                     ) /
                         (previous.y -
                             current.y) +

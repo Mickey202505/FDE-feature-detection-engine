@@ -377,8 +377,8 @@ describe("OpenCvJs green detection", () => {
 
         try {
             const seed: PixelPoint = {
-                x: 700,
-                y: 550,
+                x: 450,
+                y: 350,
             };
 
             const contours =

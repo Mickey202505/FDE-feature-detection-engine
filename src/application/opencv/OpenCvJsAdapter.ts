@@ -260,9 +260,12 @@ export class OpenCvJsAdapter
         const localTolerance = 18;
 
         const seedTolerance = 30;
-        const gradualTransitionSeedTolerance = 60;
+        const gradualTransitionSeedTolerance = 50;
         const gradualTransitionLocalTolerance = 8;
-        const minimumCloseAcceptedNeighbours = 5;
+        const minimumCloseAcceptedNeighbours = 4;
+        const relaxedCloseNeighbourSeedDistance =
+            seedTolerance + 5;
+        const maximumAcceptedNeighbourColourSpread = 12;
 
         /*
          * Diagnostic values only.
@@ -429,6 +432,14 @@ export class OpenCvJsAdapter
                         localTolerance,
                     );
 
+                const acceptedNeighbourColourSpread =
+                    this.getAcceptedNeighbourColourSpread(
+                        image,
+                        accepted,
+                        nextX,
+                        nextY,
+                    );
+
                 if (
                     seedDistance >
                     seedTolerance &&
@@ -436,9 +447,16 @@ export class OpenCvJsAdapter
                         seedDistance >
                             gradualTransitionSeedTolerance ||
                         closeNeighbourCount <
-                            minimumCloseAcceptedNeighbours ||
+                            (
+                                seedDistance <=
+                                relaxedCloseNeighbourSeedDistance
+                                    ? minimumCloseAcceptedNeighbours - 1
+                                    : minimumCloseAcceptedNeighbours
+                            ) ||
                         localDistance >
-                            gradualTransitionLocalTolerance
+                            gradualTransitionLocalTolerance ||
+                        acceptedNeighbourColourSpread >
+                            maximumAcceptedNeighbourColourSpread
                     )
                 ) {
                     continue;
@@ -473,6 +491,8 @@ export class OpenCvJsAdapter
                 gradualTransitionSeedTolerance,
                 gradualTransitionLocalTolerance,
                 minimumCloseAcceptedNeighbours,
+                relaxedCloseNeighbourSeedDistance,
+                maximumAcceptedNeighbourColourSpread,
                 maximumSeedDistance,
                 maximumSeedDistancePoint,
             },
@@ -658,6 +678,97 @@ export class OpenCvJsAdapter
         }
 
         return count;
+    }
+
+    private getAcceptedNeighbourColourSpread(
+        image: OpenCvImageData,
+        accepted: Uint8Array,
+        x: number,
+        y: number,
+    ): number {
+        const colours: Array<{
+            r: number;
+            g: number;
+            b: number;
+        }> = [];
+
+        for (
+            let offsetY = -1;
+            offsetY <= 1;
+            offsetY += 1
+        ) {
+            for (
+                let offsetX = -1;
+                offsetX <= 1;
+                offsetX += 1
+            ) {
+                if (
+                    offsetX === 0 &&
+                    offsetY === 0
+                ) {
+                    continue;
+                }
+
+                const neighbourX =
+                    x + offsetX;
+                const neighbourY =
+                    y + offsetY;
+
+                if (
+                    neighbourX < 0 ||
+                    neighbourX >= image.width ||
+                    neighbourY < 0 ||
+                    neighbourY >= image.height
+                ) {
+                    continue;
+                }
+
+                const index =
+                    neighbourY * image.width +
+                    neighbourX;
+
+                if (accepted[index] === 0) {
+                    continue;
+                }
+
+                colours.push(
+                    this.readPixel(
+                        image,
+                        neighbourX,
+                        neighbourY,
+                    ),
+                );
+            }
+        }
+
+        let maximumSpread = 0;
+
+        for (
+            let first = 0;
+            first < colours.length;
+            first += 1
+        ) {
+            for (
+                let second = first + 1;
+                second < colours.length;
+                second += 1
+            ) {
+                const distance =
+                    this.calculateRgbDistance(
+                        colours[first],
+                        colours[second],
+                    );
+
+                if (
+                    distance >
+                    maximumSpread
+                ) {
+                    maximumSpread = distance;
+                }
+            }
+        }
+
+        return maximumSpread;
     }
 
     private getLocalAcceptedColour(

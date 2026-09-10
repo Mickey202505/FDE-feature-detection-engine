@@ -188,6 +188,114 @@ export class OpenCvJsAdapter
         image: OpenCvImageData,
         seed: PixelPoint,
     ): OpenCvMat {
+        /*
+         * The original seed remains the user's primary evidence.
+         *
+         * We also grow from a few nearby interior pixels and keep
+         * only the pixels that all of those growths agree on.
+         * This reduces the path-dependence we saw on the real
+         * golf image, where one nearby seed could find a long
+         * colour-similar path into surrounding turf.
+         *
+         * No symmetry or centre assumption is made: these are only
+         * nearby evidence samples around the supplied seed.
+         */
+        const seedOffsets: PixelPoint[] = [
+            { x: 0, y: 0 },
+            { x: -6, y: 0 },
+            { x: 6, y: 0 },
+            { x: 0, y: -6 },
+            { x: 0, y: 6 },
+        ];
+
+        const masks: OpenCvMat[] = [];
+
+        try {
+            for (const offset of seedOffsets) {
+                const x = seed.x + offset.x;
+                const y = seed.y + offset.y;
+
+                if (
+                    x < 0 ||
+                    x >= image.width ||
+                    y < 0 ||
+                    y >= image.height
+                ) {
+                    continue;
+                }
+
+                const colour = this.readPixel(image, x, y);
+
+                if (!this.isGreenPixel(colour)) {
+                    continue;
+                }
+
+                masks.push(
+                    this.createSingleSeedGuidedRegionMask(
+                        image,
+                        { x, y },
+                    ),
+                );
+            }
+
+            if (masks.length === 0) {
+                return this.createEmptyMask(image);
+            }
+
+            const combined = new this.cv.Mat(
+                image.height,
+                image.width,
+                this.cv.CV_8U,
+            );
+
+            this.clearMask(combined);
+
+            for (let y = 0; y < image.height; y += 1) {
+                for (let x = 0; x < image.width; x += 1) {
+                    let presentInEveryMask = true;
+
+                    for (const mask of masks) {
+                        const value =
+                            mask.ucharPtr(y, x)[0];
+
+                        if (value === 0) {
+                            presentInEveryMask = false;
+                            break;
+                        }
+                    }
+
+                    if (presentInEveryMask) {
+                        this.writeMaskPixel(
+                            combined,
+                            x,
+                            y,
+                            255,
+                        );
+                    }
+                }
+            }
+
+            console.log(
+                "[SeedConsensusDiagnostic]",
+                {
+                    requestedSeed: seed,
+                    growthSeeds: masks.length,
+                    strategy: "intersection-of-nearby-seeds",
+                },
+            );
+
+            return combined;
+        } finally {
+            for (const mask of masks) {
+                mask.delete();
+            }
+        }
+    }
+
+    private createSingleSeedGuidedRegionMask(
+        image: OpenCvImageData,
+        seed: PixelPoint,
+    ): OpenCvMat {
         const mask =
             new this.cv.Mat(
                 image.height,
@@ -261,7 +369,7 @@ export class OpenCvJsAdapter
 
         const seedTolerance = 30;
         const gradualTransitionSeedTolerance = 50;
-        const gradualTransitionLocalTolerance = 8;
+        const gradualTransitionLocalTolerance = 12;
         const minimumCloseAcceptedNeighbours = 4;
         const relaxedCloseNeighbourSeedDistance =
             seedTolerance + 5;
@@ -440,23 +548,42 @@ export class OpenCvJsAdapter
                         nextY,
                     );
 
+                const smoothColourDrift =
+                    this.hasSmoothColourDriftSupport(
+                        image,
+                        accepted,
+                        nextX,
+                        nextY,
+                        candidateColour,
+                        gradualTransitionLocalTolerance,
+                    );
+
                 if (
                     seedDistance >
                     seedTolerance &&
                     (
                         seedDistance >
                             gradualTransitionSeedTolerance ||
-                        closeNeighbourCount <
-                            (
-                                seedDistance <=
-                                relaxedCloseNeighbourSeedDistance
-                                    ? minimumCloseAcceptedNeighbours - 1
-                                    : minimumCloseAcceptedNeighbours
-                            ) ||
-                        localDistance >
-                            gradualTransitionLocalTolerance ||
-                        acceptedNeighbourColourSpread >
-                            maximumAcceptedNeighbourColourSpread
+                        (
+                            closeNeighbourCount <
+                                (
+                                    seedDistance <=
+                                    relaxedCloseNeighbourSeedDistance
+                                        ? minimumCloseAcceptedNeighbours - 1
+                                        : minimumCloseAcceptedNeighbours
+                                ) &&
+                            !smoothColourDrift
+                        ) ||
+                        (
+                            localDistance >
+                                gradualTransitionLocalTolerance &&
+                            !smoothColourDrift
+                        ) ||
+                        (
+                            acceptedNeighbourColourSpread >
+                                maximumAcceptedNeighbourColourSpread &&
+                            !smoothColourDrift
+                        )
                     )
                 ) {
                     continue;
@@ -498,6 +625,19 @@ export class OpenCvJsAdapter
             },
         );
 
+        return mask;
+    }
+
+    private createEmptyMask(
+        image: OpenCvImageData,
+    ): OpenCvMat {
+        const mask = new this.cv.Mat(
+            image.height,
+            image.width,
+            this.cv.CV_8U,
+        );
+
+        this.clearMask(mask);
         return mask;
     }
 
@@ -678,6 +818,151 @@ export class OpenCvJsAdapter
         }
 
         return count;
+    }
+
+    private hasSmoothColourDriftSupport(
+        image: OpenCvImageData,
+        accepted: Uint8Array,
+        x: number,
+        y: number,
+        candidateColour: {
+            r: number;
+            g: number;
+            b: number;
+        },
+        tolerance: number,
+    ): boolean {
+        const vectors: Array<{
+            r: number;
+            g: number;
+            b: number;
+        }> = [];
+
+        for (
+            let offsetY = -1;
+            offsetY <= 1;
+            offsetY += 1
+        ) {
+            for (
+                let offsetX = -1;
+                offsetX <= 1;
+                offsetX += 1
+            ) {
+                if (
+                    offsetX === 0 &&
+                    offsetY === 0
+                ) {
+                    continue;
+                }
+
+                const neighbourX = x + offsetX;
+                const neighbourY = y + offsetY;
+
+                if (
+                    neighbourX < 0 ||
+                    neighbourX >= image.width ||
+                    neighbourY < 0 ||
+                    neighbourY >= image.height
+                ) {
+                    continue;
+                }
+
+                const index =
+                    neighbourY * image.width +
+                    neighbourX;
+
+                if (accepted[index] === 0) {
+                    continue;
+                }
+
+                const neighbourColour =
+                    this.readPixel(
+                        image,
+                        neighbourX,
+                        neighbourY,
+                    );
+
+                const distance =
+                    this.calculateRgbDistance(
+                        candidateColour,
+                        neighbourColour,
+                    );
+
+                if (distance > tolerance) {
+                    continue;
+                }
+
+                vectors.push({
+                    r: candidateColour.r - neighbourColour.r,
+                    g: candidateColour.g - neighbourColour.g,
+                    b: candidateColour.b - neighbourColour.b,
+                });
+            }
+        }
+
+        if (vectors.length < 3) {
+            return false;
+        }
+
+        let consistentPairs = 0;
+        let totalPairs = 0;
+
+        for (
+            let first = 0;
+            first < vectors.length;
+            first += 1
+        ) {
+            for (
+                let second = first + 1;
+                second < vectors.length;
+                second += 1
+            ) {
+                const firstVector = vectors[first];
+                const secondVector = vectors[second];
+
+                const firstLength = Math.sqrt(
+                    firstVector.r * firstVector.r +
+                    firstVector.g * firstVector.g +
+                    firstVector.b * firstVector.b,
+                );
+
+                const secondLength = Math.sqrt(
+                    secondVector.r * secondVector.r +
+                    secondVector.g * secondVector.g +
+                    secondVector.b * secondVector.b,
+                );
+
+                if (
+                    firstLength === 0 ||
+                    secondLength === 0
+                ) {
+                    continue;
+                }
+
+                const dot =
+                    firstVector.r * secondVector.r +
+                    firstVector.g * secondVector.g +
+                    firstVector.b * secondVector.b;
+
+                const cosine =
+                    dot /
+                    (firstLength * secondLength);
+
+                totalPairs += 1;
+
+                if (cosine >= 0.8) {
+                    consistentPairs += 1;
+                }
+            }
+        }
+
+        if (totalPairs === 0) {
+            return false;
+        }
+
+        return (
+            consistentPairs / totalPairs >= 0.75
+        );
     }
 
     private getAcceptedNeighbourColourSpread(

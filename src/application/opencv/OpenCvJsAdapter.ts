@@ -335,12 +335,6 @@ export class OpenCvJsAdapter
             return mask;
         }
 
-        const visited =
-            new Uint8Array(
-                image.width *
-                    image.height,
-            );
-
         const accepted =
             new Uint8Array(
                 image.width *
@@ -354,7 +348,6 @@ export class OpenCvJsAdapter
             seedY * image.width +
             seedX;
 
-        visited[seedIndex] = 1;
         accepted[seedIndex] = 1;
 
         queueX.push(seedX);
@@ -437,12 +430,10 @@ export class OpenCvJsAdapter
                     nextX;
 
                 if (
-                    visited[index] !== 0
+                    accepted[index] !== 0
                 ) {
                     continue;
                 }
-
-                visited[index] = 1;
 
                 const candidateColour =
                     this.readPixel(

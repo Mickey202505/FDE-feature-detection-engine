@@ -369,11 +369,80 @@ export class OpenCvJsAdapter
         const maximumAcceptedNeighbourColourSpread = 12;
 
         /*
+         * ---------------------------------------------------------
+         * DIAGNOSTICS ONLY
+         * ---------------------------------------------------------
+         *
+         * These values do NOT affect acceptance/rejection.
+         *
+         * The diagnostic window begins 40 pixels to the right
+         * of the seed. This is deliberately aimed at the failing
+         * gradual-transition test where:
+         *
+         *   seed X = 30
+         *   expected X >= 97
+         *
+         * We record only a limited number of rejection events so
+         * that the real golf image does not produce thousands of
+         * console messages.
+         */
+        const diagnosticStartX =
+            seedX + 40;
+
+        const diagnosticRejectionLimit = 40;
+
+        let diagnosticRejectionCount = 0;
+
+        let rejectedNotGreen = 0;
+        let rejectedLocalDistance = 0;
+        let rejectedGradualCondition = 0;
+
+        let acceptedPixelCount = 1;
+
+        let minimumAcceptedX = seedX;
+        let maximumAcceptedX = seedX;
+        let minimumAcceptedY = seedY;
+        let maximumAcceptedY = seedY;
+
+        const logGrowthRejection = (
+            reason:
+                | "NOT_GREEN"
+                | "LOCAL_DISTANCE"
+                | "GRADUAL_CONDITION",
+            details: Record<string, unknown>,
+        ): void => {
+            /*
+             * Diagnostic logging only.
+             *
+             * Restrict this to the right-hand diagnostic region
+             * and stop after a small number of records.
+             */
+            if (
+                details.x === undefined ||
+                typeof details.x !== "number" ||
+                details.x < diagnosticStartX ||
+                diagnosticRejectionCount >=
+                    diagnosticRejectionLimit
+            ) {
+                return;
+            }
+
+            diagnosticRejectionCount += 1;
+
+            console.log(
+                `[SeedGrowthReject:${reason}]`,
+                {
+                    seed,
+                    ...details,
+                },
+            );
+        };
+
+        /*
          * Diagnostic values only.
          *
-         * These do not affect the detection result.
-         * They tell us how far the accepted region
-         * travels from the original seed colour.
+         * They tell us how far the accepted region travels from
+         * the original seed colour.
          */
         let maximumSeedDistance = 0;
 
@@ -447,6 +516,17 @@ export class OpenCvJsAdapter
                         candidateColour,
                     )
                 ) {
+                    rejectedNotGreen += 1;
+
+                    logGrowthRejection(
+                        "NOT_GREEN",
+                        {
+                            x: nextX,
+                            y: nextY,
+                            candidateColour,
+                        },
+                    );
+
                     continue;
                 }
 
@@ -507,6 +587,21 @@ export class OpenCvJsAdapter
                     localDistance >
                     localTolerance
                 ) {
+                    rejectedLocalDistance += 1;
+
+                    logGrowthRejection(
+                        "LOCAL_DISTANCE",
+                        {
+                            x: nextX,
+                            y: nextY,
+                            candidateColour,
+                            localColour,
+                            seedDistance,
+                            localDistance,
+                            localTolerance,
+                        },
+                    );
+
                     continue;
                 }
 
@@ -565,6 +660,27 @@ export class OpenCvJsAdapter
                         )
                     )
                 ) {
+                    rejectedGradualCondition += 1;
+
+                    logGrowthRejection(
+                        "GRADUAL_CONDITION",
+                        {
+                            x: nextX,
+                            y: nextY,
+                            candidateColour,
+                            localColour,
+                            seedDistance,
+                            seedTolerance,
+                            gradualTransitionSeedTolerance,
+                            localDistance,
+                            gradualTransitionLocalTolerance,
+                            closeNeighbourCount,
+                            acceptedNeighbourColourSpread,
+                            maximumAcceptedNeighbourColourSpread,
+                            smoothColourDrift,
+                        },
+                    );
+
                     continue;
                 }
 
@@ -579,6 +695,38 @@ export class OpenCvJsAdapter
 
                 queueX.push(nextX);
                 queueY.push(nextY);
+
+                /*
+                 * DIAGNOSTIC ONLY.
+                 *
+                 * Track the actual bounds of the pixels that
+                 * successfully entered the growth region.
+                 */
+                acceptedPixelCount += 1;
+
+                minimumAcceptedX =
+                    Math.min(
+                        minimumAcceptedX,
+                        nextX,
+                    );
+
+                maximumAcceptedX =
+                    Math.max(
+                        maximumAcceptedX,
+                        nextX,
+                    );
+
+                minimumAcceptedY =
+                    Math.min(
+                        minimumAcceptedY,
+                        nextY,
+                    );
+
+                maximumAcceptedY =
+                    Math.max(
+                        maximumAcceptedY,
+                        nextY,
+                    );
             }
         }
 
@@ -599,8 +747,33 @@ export class OpenCvJsAdapter
                 minimumCloseAcceptedNeighbours,
                 relaxedCloseNeighbourSeedDistance,
                 maximumAcceptedNeighbourColourSpread,
+
+                acceptedPixelCount,
+
+                acceptedBounds: {
+                    minX: minimumAcceptedX,
+                    maxX: maximumAcceptedX,
+                    minY: minimumAcceptedY,
+                    maxY: maximumAcceptedY,
+                },
+
                 maximumSeedDistance,
                 maximumSeedDistancePoint,
+
+                rejectionCounts: {
+                    notGreen: rejectedNotGreen,
+                    localDistance: rejectedLocalDistance,
+                    gradualCondition:
+                        rejectedGradualCondition,
+                },
+
+                diagnostic: {
+                    startX: diagnosticStartX,
+                    rejectionLimit:
+                        diagnosticRejectionLimit,
+                    loggedRejections:
+                        diagnosticRejectionCount,
+                },
             },
         );
 

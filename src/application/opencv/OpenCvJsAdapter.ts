@@ -555,21 +555,9 @@ export class OpenCvJsAdapter
                     (
                         seedDistance >
                             gradualTransitionSeedTolerance ||
-                        (
-                            closeNeighbourCount <
-                                (
-                                    seedDistance <=
-                                    relaxedCloseNeighbourSeedDistance
-                                        ? minimumCloseAcceptedNeighbours - 1
-                                        : minimumCloseAcceptedNeighbours
-                                ) &&
-                            !smoothColourDrift
-                        ) ||
-                        (
-                            localDistance >
-                                gradualTransitionLocalTolerance &&
-                            !smoothColourDrift
-                        ) ||
+                        localDistance >
+                            gradualTransitionLocalTolerance ||
+                        closeNeighbourCount < 1 ||
                         (
                             acceptedNeighbourColourSpread >
                                 maximumAcceptedNeighbourColourSpread &&

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { PNG } from "pngjs";
 
@@ -83,6 +83,87 @@ function getBounds(points: readonly PixelPoint[]) {
             minY: Number.POSITIVE_INFINITY,
             maxY: Number.NEGATIVE_INFINITY,
         },
+    );
+}
+
+function drawLine(
+    png: PNG,
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+) {
+    let x = x0;
+    let y = y0;
+
+    const dx = Math.abs(x1 - x0);
+    const dy = Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1;
+    const sy = y0 < y1 ? 1 : -1;
+    let error = dx - dy;
+
+    while (true) {
+        if (
+            x >= 0 &&
+            x < png.width &&
+            y >= 0 &&
+            y < png.height
+        ) {
+            const offset =
+                (y * png.width + x) * 4;
+
+            png.data[offset] = 255;
+            png.data[offset + 1] = 0;
+            png.data[offset + 2] = 0;
+            png.data[offset + 3] = 255;
+        }
+
+        if (x === x1 && y === y1) {
+            break;
+        }
+
+        const doubleError = 2 * error;
+
+        if (doubleError > -dy) {
+            error -= dy;
+            x += sx;
+        }
+
+        if (doubleError < dx) {
+            error += dx;
+            y += sy;
+        }
+    }
+}
+
+function writeContourOverlay(
+    imageData: OpenCvImageData,
+    points: readonly PixelPoint[],
+    outputPath: string,
+) {
+    const png = new PNG({
+        width: imageData.width,
+        height: imageData.height,
+    });
+
+    png.data.set(imageData.data);
+
+    for (let i = 0; i < points.length; i += 1) {
+        const current = points[i];
+        const next = points[(i + 1) % points.length];
+
+        drawLine(
+            png,
+            current.x,
+            current.y,
+            next.x,
+            next.y,
+        );
+    }
+
+    writeFileSync(
+        outputPath,
+        PNG.sync.write(png),
     );
 }
 
@@ -366,10 +447,10 @@ describe("OpenCvJs green detection", () => {
             "[RealImageDimensions]",
             {
                 width: imageData.width,
-                height: imageData.height
-            }
+                height: imageData.height,
+            },
         );
-        
+
         const image =
             openCvRuntime.matFromImageData!(
                 imageData,
@@ -426,10 +507,17 @@ describe("OpenCvJs green detection", () => {
                     bounds,
                 },
             );
+
+            writeContourOverlay(
+                imageData,
+                contour!.points,
+                "tests/fixtures/golf-green-detected.png",
+            );
         } finally {
             image.delete();
         }
     });
+
     it("produces a similar real-green boundary from another interior seed", () => {
         const adapter = new OpenCvJsAdapter(openCvRuntime);
         const imageData = loadRealGolfGreenImage();
@@ -476,12 +564,15 @@ describe("OpenCvJs green detection", () => {
             expect(
                 Math.abs(first.minX - second.minX),
             ).toBeLessThanOrEqual(30);
+
             expect(
                 Math.abs(first.maxX - second.maxX),
             ).toBeLessThanOrEqual(30);
+
             expect(
                 Math.abs(first.minY - second.minY),
             ).toBeLessThanOrEqual(30);
+
             expect(
                 Math.abs(first.maxY - second.maxY),
             ).toBeLessThanOrEqual(30);
@@ -489,5 +580,4 @@ describe("OpenCvJs green detection", () => {
             image.delete();
         }
     });
-
 });

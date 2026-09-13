@@ -1,1892 +1,1873 @@
 import type {
-    OpenCvContour,
-    OpenCvContourCollection,
-    OpenCvImageData,
-    OpenCvMat,
-    OpenCvPoint,
-    OpenCvRuntime,
+  OpenCvContour,
+  OpenCvContourCollection,
+  OpenCvImageData,
+  OpenCvMat,
+  OpenCvPoint,
+  OpenCvRuntime,
 } from "./OpenCvTypes";
 
 import type { PixelPoint } from "../../core/geometry/SeedAwarePolygonCleaner";
 
-export class OpenCvJsAdapter
-{
-    private readonly cv: OpenCvRuntime;
+export class OpenCvJsAdapter {
+  private readonly cv: OpenCvRuntime;
 
-    constructor(cv: OpenCvRuntime) {
-        this.cv = cv;
-    }
+  constructor(cv: OpenCvRuntime) {
+    this.cv = cv;
+  }
 
-    findContours(
-        image: OpenCvImageData | OpenCvMat,
-        seed?: PixelPoint,
-    ): OpenCvContourCollection {
-        const normalizedImage =
-            this.normalizeImage(image);
+  findContours(
+    image: OpenCvImageData | OpenCvMat,
+    seed?: PixelPoint,
+  ): OpenCvContourCollection {
+    const normalizedImage = this.normalizeImage(image);
 
-        this.validateImage(normalizedImage);
+    this.validateImage(normalizedImage);
 
-        const mask =
-            this.createBinaryImage(
-                normalizedImage,
-                seed,
-            );
+    const mask = this.createBinaryImage(
+      normalizedImage,
+      seed,
+    );
 
-        const contours =
-            new this.cv.MatVector();
+    const contours = new this.cv.MatVector();
+    const hierarchy = new this.cv.Mat();
 
-        const hierarchy =
-            new this.cv.Mat();
+    try {
+      this.cv.findContours(
+        mask,
+        contours,
+        hierarchy,
+        this.cv.RETR_EXTERNAL,
+        this.cv.CHAIN_APPROX_SIMPLE,
+      );
 
-        try {
-            this.cv.findContours(
-                mask,
-                contours,
-                hierarchy,
-                this.cv.RETR_EXTERNAL,
-                this.cv.CHAIN_APPROX_SIMPLE,
-            );
+      const detectedContours: OpenCvContour[] = [];
 
-            const detectedContours: OpenCvContour[] =
-                [];
-
-            for (
-                let index = 0;
-                index < contours.size();
-                index += 1
-            ) {
-                const contour =
-                    contours.get(index);
-
-                try {
-                    let points =
-                        this.readContourPoints(
-                            contour,
-                        );
-
-                    this.logRawContourDiagnostic(
-                        points,
-                    );
-
-                    if (
-                        points.length >= 3 &&
-                        this.cv.approxPolyDP
-                    ) {
-                        const perimeter =
-                            this.calculatePerimeter(
-                                points,
-                            );
-
-                        const epsilon =
-                            Math.max(
-                                perimeter *
-                                    0.005,
-                                0.5,
-                            );
-
-                        const approximated =
-                            new this.cv.Mat();
-
-                        try {
-                            this.cv.approxPolyDP(
-                                contour,
-                                approximated,
-                                epsilon,
-                                true,
-                            );
-
-                            points =
-                                this.readContourPoints(
-                                    approximated,
-                                );
-
-                            this.logApproximatedContourDiagnostic(
-                                points,
-                                epsilon,
-                            );
-                        } finally {
-                            if (
-                                typeof approximated.delete ===
-                                "function"
-                            ) {
-                                approximated.delete();
-                            }
-                        }
-                    }
-
-                    if (
-                        seed &&
-                        points.length >= 3
-                    ) {
-                        points =
-                            this.cleanSeedAwarePolygon(
-                                points,
-                                seed,
-                            );
-                    }
-
-                    if (
-                        points.length >= 3
-                    ) {
-                        detectedContours.push({
-                            points,
-                        });
-                    }
-                } finally {
-                    if (
-                        contour &&
-                        typeof contour.delete ===
-                        "function"
-                    ) {
-                        contour.delete();
-                    }
-                }
-            }
-
-            return detectedContours;
-        } finally {
-            if (
-                typeof contours.delete ===
-                "function"
-            ) {
-                contours.delete();
-            }
-
-            if (
-                typeof hierarchy.delete ===
-                "function"
-            ) {
-                hierarchy.delete();
-            }
-
-            if (
-                typeof mask.delete ===
-                "function"
-            ) {
-                mask.delete();
-            }
-        }
-    }
-
-    private createBinaryImage(
-        image: OpenCvImageData,
-        seed?: PixelPoint,
-    ): OpenCvMat {
-        if (seed) {
-            return this.createSeedGuidedRegionMask(
-                image,
-                seed,
-            );
-        }
-
-        return this.createAutomaticGreenMask(
-            image,
-        );
-    }
-
-    private createSeedGuidedRegionMask(
-        image: OpenCvImageData,
-        seed: PixelPoint,
-    ): OpenCvMat {
-        /*
-         * The original seed remains the user's primary evidence.
-         *
-         * We also grow from a few nearby interior pixels and keep
-         * only the pixels that all of those growths agree on.
-         * This reduces the path-dependence we saw on the real
-         * golf image, where one nearby seed could find a long
-         * colour-similar path into surrounding turf.
-         *
-         * No symmetry or centre assumption is made: these are only
-         * nearby evidence samples around the supplied seed.
-         */
-        const seedOffsets: PixelPoint[] = [
-            { x: 0, y: 0 },
-            { x: -6, y: 0 },
-            { x: 6, y: 0 },
-            { x: 0, y: -6 },
-            { x: 0, y: 6 },
-        ];
-
-        const masks: OpenCvMat[] = [];
+      for (
+        let index = 0;
+        index < contours.size();
+        index += 1
+      ) {
+        const contour = contours.get(index);
 
         try {
-            for (const offset of seedOffsets) {
-                const x = seed.x + offset.x;
-                const y = seed.y + offset.y;
+          let points = this.readContourPoints(
+            contour,
+          );
 
-                if (
-                    x < 0 ||
-                    x >= image.width ||
-                    y < 0 ||
-                    y >= image.height
-                ) {
-                    continue;
-                }
+          this.logRawContourDiagnostic(points);
 
-                const colour = this.readPixel(image, x, y);
+          if (
+            points.length >= 3 &&
+            this.cv.approxPolyDP
+          ) {
+            const perimeter =
+              this.calculatePerimeter(points);
 
-                if (!this.isGreenPixel(colour)) {
-                    continue;
-                }
-
-                masks.push(
-                    this.createSingleSeedGuidedRegionMask(
-                        image,
-                        { x, y },
-                    ),
-                );
-            }
-
-            if (masks.length === 0) {
-                return this.createEmptyMask(image);
-            }
-
-            const combined = new this.cv.Mat(
-                image.height,
-                image.width,
-                this.cv.CV_8U,
+            const epsilon = Math.max(
+              perimeter * 0.005,
+              0.5,
             );
 
-            this.clearMask(combined);
+            const approximated = new this.cv.Mat();
 
-            for (let y = 0; y < image.height; y += 1) {
-                for (let x = 0; x < image.width; x += 1) {
-                    let presentInEveryMask = true;
+            try {
+              this.cv.approxPolyDP(
+                contour,
+                approximated,
+                epsilon,
+                true,
+              );
 
-                    for (const mask of masks) {
-                        const value =
-                            mask.ucharPtr(y, x)[0];
-
-                        if (value === 0) {
-                            presentInEveryMask = false;
-                            break;
-                        }
-                    }
-
-                    if (presentInEveryMask) {
-                        this.writeMaskPixel(
-                            combined,
-                            x,
-                            y,
-                            255,
-                        );
-                    }
-                }
-            }
-
-            console.log(
-                "[SeedConsensusDiagnostic]",
-                {
-                    requestedSeed: seed,
-                    growthSeeds: masks.length,
-                    strategy: "intersection-of-nearby-seeds",
-                },
-            );
-
-            return combined;
-        } finally {
-            for (const mask of masks) {
-                mask.delete();
-            }
-        }
-    }
-
-    private createSingleSeedGuidedRegionMask(
-        image: OpenCvImageData,
-        seed: PixelPoint,
-    ): OpenCvMat {
-        const mask =
-            new this.cv.Mat(
-                image.height,
-                image.width,
-                this.cv.CV_8U,
-            );
-
-        this.clearMask(mask);
-
-        const seedX =
-            Math.round(seed.x);
-
-        const seedY =
-            Math.round(seed.y);
-
-        if (
-            seedX < 0 ||
-            seedX >= image.width ||
-            seedY < 0 ||
-            seedY >= image.height
-        ) {
-            return mask;
-        }
-
-        const seedColour =
-            this.readPixel(
-                image,
-                seedX,
-                seedY,
-            );
-
-        if (
-            !this.isGreenPixel(
-                seedColour,
-            )
-        ) {
-            return mask;
-        }
-
-        const accepted =
-            new Uint8Array(
-                image.width *
-                    image.height,
-            );
-
-        const queueX: number[] = [];
-        const queueY: number[] = [];
-
-        const seedIndex =
-            seedY * image.width +
-            seedX;
-
-        accepted[seedIndex] = 1;
-
-        queueX.push(seedX);
-        queueY.push(seedY);
-
-        /*
-         * Local colour continuity controls how
-         * far a candidate pixel may differ from
-         * the already accepted neighbourhood.
-         */
-        const localTolerance = 18;
-
-        const seedTolerance = 30;
-        const gradualTransitionSeedTolerance = 50;
-        const gradualTransitionLocalTolerance = 12;
-        const minimumCloseAcceptedNeighbours = 4;
-        const relaxedCloseNeighbourSeedDistance =
-            seedTolerance + 5;
-        const maximumAcceptedNeighbourColourSpread = 12;
-
-        /*
-         * ---------------------------------------------------------
-         * DIAGNOSTICS ONLY
-         * ---------------------------------------------------------
-         *
-         * These values do NOT affect acceptance/rejection.
-         *
-         * The diagnostic window begins 40 pixels to the right
-         * of the seed. This is deliberately aimed at the failing
-         * gradual-transition test where:
-         *
-         *   seed X = 30
-         *   expected X >= 97
-         *
-         * We record only a limited number of rejection events so
-         * that the real golf image does not produce thousands of
-         * console messages.
-         */
-        const diagnosticStartX =
-            seedX + 40;
-
-        const diagnosticRejectionLimit = 40;
-
-        let diagnosticRejectionCount = 0;
-
-        let rejectedNotGreen = 0;
-        let rejectedLocalDistance = 0;
-        let rejectedGradualCondition = 0;
-
-        let acceptedPixelCount = 1;
-
-        let minimumAcceptedX = seedX;
-        let maximumAcceptedX = seedX;
-        let minimumAcceptedY = seedY;
-        let maximumAcceptedY = seedY;
-
-        const logGrowthRejection = (
-            reason:
-                | "NOT_GREEN"
-                | "LOCAL_DISTANCE"
-                | "GRADUAL_CONDITION",
-            details: Record<string, unknown>,
-        ): void => {
-            /*
-             * Diagnostic logging only.
-             *
-             * Restrict this to the right-hand diagnostic region
-             * and stop after a small number of records.
-             */
-            if (
-                details.x === undefined ||
-                typeof details.x !== "number" ||
-                details.x < diagnosticStartX ||
-                diagnosticRejectionCount >=
-                    diagnosticRejectionLimit
-            ) {
-                return;
-            }
-
-            diagnosticRejectionCount += 1;
-
-            console.log(
-                `[SeedGrowthReject:${reason}]`,
-                {
-                    seed,
-                    ...details,
-                },
-            );
-        };
-
-        /*
-         * Diagnostic values only.
-         *
-         * They tell us how far the accepted region travels from
-         * the original seed colour.
-         */
-        let maximumSeedDistance = 0;
-
-        let maximumSeedDistancePoint:
-            PixelPoint | undefined;
-
-        const neighbourOffsets =
-            [
-                [-1, -1],
-                [0, -1],
-                [1, -1],
-                [-1, 0],
-                [1, 0],
-                [-1, 1],
-                [0, 1],
-                [1, 1],
-            ];
-
-        while (
-            queueX.length > 0
-        ) {
-            const currentX =
-                queueX.shift()!;
-
-            const currentY =
-                queueY.shift()!;
-
-            for (
-                const [
-                    offsetX,
-                    offsetY,
-                ] of neighbourOffsets
-            ) {
-                const nextX =
-                    currentX +
-                    offsetX;
-
-                const nextY =
-                    currentY +
-                    offsetY;
-
-                if (
-                    nextX < 0 ||
-                    nextX >= image.width ||
-                    nextY < 0 ||
-                    nextY >= image.height
-                ) {
-                    continue;
-                }
-
-                const index =
-                    nextY *
-                        image.width +
-                    nextX;
-
-                if (
-                    accepted[index] !== 0
-                ) {
-                    continue;
-                }
-
-                const candidateColour =
-                    this.readPixel(
-                        image,
-                        nextX,
-                        nextY,
-                    );
-
-                if (
-                    !this.isGreenPixel(
-                        candidateColour,
-                    )
-                ) {
-                    rejectedNotGreen += 1;
-
-                    logGrowthRejection(
-                        "NOT_GREEN",
-                        {
-                            x: nextX,
-                            y: nextY,
-                            candidateColour,
-                        },
-                    );
-
-                    continue;
-                }
-
-                const seedDistance =
-                    this.calculateRgbDistance(
-                        candidateColour,
-                        seedColour,
-                    );
-
-                /*
-                 * Diagnostic only.
-                 *
-                 * We record the furthest colour
-                 * encountered from the original
-                 * seed colour.
-                 */
-                if (
-                    seedDistance >
-                    maximumSeedDistance
-                ) {
-                    maximumSeedDistance =
-                        seedDistance;
-
-                    maximumSeedDistancePoint =
-                        {
-                            x: nextX,
-                            y: nextY,
-                        };
-                }
-
-                /*
-                 * Important:
-                 *
-                 * We deliberately do NOT reject the
-                 * candidate based on its distance from
-                 * the original seed colour.
-                 *
-                 * The region is allowed to follow a
-                 * gradual colour change. The local
-                 * neighbourhood check below is what
-                 * controls continuity.
-                 */
-                const localColour =
-                    this.getLocalAcceptedColour(
-                        image,
-                        accepted,
-                        nextX,
-                        nextY,
-                    );
-
-                const localDistance =
-                    this.calculateRgbDistance(
-                        candidateColour,
-                        localColour,
-                    );
-
-                if (
-                    localDistance >
-                    localTolerance
-                ) {
-                    rejectedLocalDistance += 1;
-
-                    logGrowthRejection(
-                        "LOCAL_DISTANCE",
-                        {
-                            x: nextX,
-                            y: nextY,
-                            candidateColour,
-                            localColour,
-                            seedDistance,
-                            localDistance,
-                            localTolerance,
-                        },
-                    );
-
-                    continue;
-                }
-
-                /*
-                 * Most candidates must remain reasonably
-                 * close to the original seed colour.
-                 *
-                 * A small exception allows a genuinely
-                 * gradual transition to continue when the
-                 * candidate is strongly supported by several
-                 * already accepted neighbours. This keeps the
-                 * useful gradual-transition behaviour without
-                 * allowing unlimited colour drift through turf.
-                 */
-                const closeNeighbourCount =
-                    this.countCloseAcceptedNeighbours(
-                        image,
-                        accepted,
-                        nextX,
-                        nextY,
-                        candidateColour,
-                        localTolerance,
-                    );
-
-                const acceptedNeighbourColourSpread =
-                    this.getAcceptedNeighbourColourSpread(
-                        image,
-                        accepted,
-                        nextX,
-                        nextY,
-                    );
-
-                const smoothColourDrift =
-                    this.hasSmoothColourDriftSupport(
-                        image,
-                        accepted,
-                        nextX,
-                        nextY,
-                        candidateColour,
-                        gradualTransitionLocalTolerance,
-                    );
-
-                if (
-                    seedDistance >
-                    seedTolerance &&
-                    (
-                        seedDistance >
-                            gradualTransitionSeedTolerance ||
-                        localDistance >
-                            gradualTransitionLocalTolerance ||
-                        closeNeighbourCount < 1 ||
-                        (
-                            acceptedNeighbourColourSpread >
-                                maximumAcceptedNeighbourColourSpread &&
-                            !smoothColourDrift
-                        )
-                    )
-                ) {
-                    rejectedGradualCondition += 1;
-
-                    logGrowthRejection(
-                        "GRADUAL_CONDITION",
-                        {
-                            x: nextX,
-                            y: nextY,
-                            candidateColour,
-                            localColour,
-                            seedDistance,
-                            seedTolerance,
-                            gradualTransitionSeedTolerance,
-                            localDistance,
-                            gradualTransitionLocalTolerance,
-                            closeNeighbourCount,
-                            acceptedNeighbourColourSpread,
-                            maximumAcceptedNeighbourColourSpread,
-                            smoothColourDrift,
-                        },
-                    );
-
-                    continue;
-                }
-
-                accepted[index] = 1;
-
-                this.writeMaskPixel(
-                    mask,
-                    nextX,
-                    nextY,
-                    255,
+              points =
+                this.readContourPoints(
+                  approximated,
                 );
 
-                queueX.push(nextX);
-                queueY.push(nextY);
-
-                /*
-                 * DIAGNOSTIC ONLY.
-                 *
-                 * Track the actual bounds of the pixels that
-                 * successfully entered the growth region.
-                 */
-                acceptedPixelCount += 1;
-
-                minimumAcceptedX =
-                    Math.min(
-                        minimumAcceptedX,
-                        nextX,
-                    );
-
-                maximumAcceptedX =
-                    Math.max(
-                        maximumAcceptedX,
-                        nextX,
-                    );
-
-                minimumAcceptedY =
-                    Math.min(
-                        minimumAcceptedY,
-                        nextY,
-                    );
-
-                maximumAcceptedY =
-                    Math.max(
-                        maximumAcceptedY,
-                        nextY,
-                    );
+              this.logApproximatedContourDiagnostic(
+                points,
+                epsilon,
+              );
+            } finally {
+              if (
+                typeof approximated.delete ===
+                "function"
+              ) {
+                approximated.delete();
+              }
             }
-        }
+          }
 
-        /*
-         * Diagnostic only.
-         *
-         * This does not change the mask.
-         */
-        console.log(
-            "[SeedGrowthDiagnostic]",
-            {
+          if (
+            seed &&
+            points.length >= 3
+          ) {
+            points =
+              this.cleanSeedAwarePolygon(
+                points,
                 seed,
-                seedColour,
-                localTolerance,
-                seedTolerance,
-                gradualTransitionSeedTolerance,
-                gradualTransitionLocalTolerance,
-                minimumCloseAcceptedNeighbours,
-                relaxedCloseNeighbourSeedDistance,
-                maximumAcceptedNeighbourColourSpread,
-
-                acceptedPixelCount,
-
-                acceptedBounds: {
-                    minX: minimumAcceptedX,
-                    maxX: maximumAcceptedX,
-                    minY: minimumAcceptedY,
-                    maxY: maximumAcceptedY,
-                },
-
-                maximumSeedDistance,
-                maximumSeedDistancePoint,
-
-                rejectionCounts: {
-                    notGreen: rejectedNotGreen,
-                    localDistance: rejectedLocalDistance,
-                    gradualCondition:
-                        rejectedGradualCondition,
-                },
-
-                diagnostic: {
-                    startX: diagnosticStartX,
-                    rejectionLimit:
-                        diagnosticRejectionLimit,
-                    loggedRejections:
-                        diagnosticRejectionCount,
-                },
-            },
-        );
-
-        return mask;
-    }
-
-    private createEmptyMask(
-        image: OpenCvImageData,
-    ): OpenCvMat {
-        const mask = new this.cv.Mat(
-            image.height,
-            image.width,
-            this.cv.CV_8U,
-        );
-
-        this.clearMask(mask);
-        return mask;
-    }
-
-    private createAutomaticGreenMask(
-        image: OpenCvImageData,
-    ): OpenCvMat {
-        const mask =
-            new this.cv.Mat(
-                image.height,
-                image.width,
-                this.cv.CV_8U,
-            );
-
-        this.clearMask(mask);
-
-        for (
-            let y = 0;
-            y < image.height;
-            y += 1
-        ) {
-            for (
-                let x = 0;
-                x < image.width;
-                x += 1
-            ) {
-                const colour =
-                    this.readPixel(
-                        image,
-                        x,
-                        y,
-                    );
-
-                if (
-                    this.isGreenPixel(
-                        colour,
-                    )
-                ) {
-                    this.writeMaskPixel(
-                        mask,
-                        x,
-                        y,
-                        255,
-                    );
-                }
-            }
-        }
-
-        return mask;
-    }
-
-    private readPixel(
-        image: OpenCvImageData,
-        x: number,
-        y: number,
-    ): {
-        r: number;
-        g: number;
-        b: number;
-    } {
-        const index =
-            (y * image.width + x) * 4;
-
-        return {
-            r: image.data[index],
-            g: image.data[index + 1],
-            b: image.data[index + 2],
-        };
-    }
-
-    private writeMaskPixel(
-        mask: OpenCvMat,
-        x: number,
-        y: number,
-        value: number,
-    ): void {
-        if (
-            typeof mask.ucharPtr ===
-            "function"
-        ) {
-            mask.ucharPtr(y, x)[0] =
-                value;
-        }
-    }
-
-    private clearMask(
-        mask: OpenCvMat,
-    ): void {
-        if (
-            typeof mask.ucharPtr ===
-            "function"
-        ) {
-            for (
-                let y = 0;
-                y < mask.rows;
-                y += 1
-            ) {
-                for (
-                    let x = 0;
-                    x < mask.cols;
-                    x += 1
-                ) {
-                    mask.ucharPtr(y, x)[0] =
-                        0;
-                }
-            }
-        }
-    }
-
-    private countCloseAcceptedNeighbours(
-        image: OpenCvImageData,
-        accepted: Uint8Array,
-        x: number,
-        y: number,
-        candidateColour: {
-            r: number;
-            g: number;
-            b: number;
-        },
-        tolerance: number,
-    ): number {
-        let count = 0;
-
-        for (
-            let offsetY = -1;
-            offsetY <= 1;
-            offsetY += 1
-        ) {
-            for (
-                let offsetX = -1;
-                offsetX <= 1;
-                offsetX += 1
-            ) {
-                if (
-                    offsetX === 0 &&
-                    offsetY === 0
-                ) {
-                    continue;
-                }
-
-                const neighbourX =
-                    x + offsetX;
-                const neighbourY =
-                    y + offsetY;
-
-                if (
-                    neighbourX < 0 ||
-                    neighbourX >= image.width ||
-                    neighbourY < 0 ||
-                    neighbourY >= image.height
-                ) {
-                    continue;
-                }
-
-                const index =
-                    neighbourY * image.width +
-                    neighbourX;
-
-                if (accepted[index] === 0) {
-                    continue;
-                }
-
-                const colour =
-                    this.readPixel(
-                        image,
-                        neighbourX,
-                        neighbourY,
-                    );
-
-                if (
-                    this.calculateRgbDistance(
-                        candidateColour,
-                        colour,
-                    ) <= tolerance
-                ) {
-                    count += 1;
-                }
-            }
-        }
-
-        return count;
-    }
-
-    private hasSmoothColourDriftSupport(
-        image: OpenCvImageData,
-        accepted: Uint8Array,
-        x: number,
-        y: number,
-        candidateColour: {
-            r: number;
-            g: number;
-            b: number;
-        },
-        tolerance: number,
-    ): boolean {
-        const vectors: Array<{
-            r: number;
-            g: number;
-            b: number;
-        }> = [];
-
-        for (
-            let offsetY = -1;
-            offsetY <= 1;
-            offsetY += 1
-        ) {
-            for (
-                let offsetX = -1;
-                offsetX <= 1;
-                offsetX += 1
-            ) {
-                if (
-                    offsetX === 0 &&
-                    offsetY === 0
-                ) {
-                    continue;
-                }
-
-                const neighbourX = x + offsetX;
-                const neighbourY = y + offsetY;
-
-                if (
-                    neighbourX < 0 ||
-                    neighbourX >= image.width ||
-                    neighbourY < 0 ||
-                    neighbourY >= image.height
-                ) {
-                    continue;
-                }
-
-                const index =
-                    neighbourY * image.width +
-                    neighbourX;
-
-                if (accepted[index] === 0) {
-                    continue;
-                }
-
-                const neighbourColour =
-                    this.readPixel(
-                        image,
-                        neighbourX,
-                        neighbourY,
-                    );
-
-                const distance =
-                    this.calculateRgbDistance(
-                        candidateColour,
-                        neighbourColour,
-                    );
-
-                if (distance > tolerance) {
-                    continue;
-                }
-
-                vectors.push({
-                    r: candidateColour.r - neighbourColour.r,
-                    g: candidateColour.g - neighbourColour.g,
-                    b: candidateColour.b - neighbourColour.b,
-                });
-            }
-        }
-
-        if (vectors.length < 3) {
-            return false;
-        }
-
-        let consistentPairs = 0;
-        let totalPairs = 0;
-
-        for (
-            let first = 0;
-            first < vectors.length;
-            first += 1
-        ) {
-            for (
-                let second = first + 1;
-                second < vectors.length;
-                second += 1
-            ) {
-                const firstVector = vectors[first];
-                const secondVector = vectors[second];
-
-                const firstLength = Math.sqrt(
-                    firstVector.r * firstVector.r +
-                    firstVector.g * firstVector.g +
-                    firstVector.b * firstVector.b,
-                );
-
-                const secondLength = Math.sqrt(
-                    secondVector.r * secondVector.r +
-                    secondVector.g * secondVector.g +
-                    secondVector.b * secondVector.b,
-                );
-
-                if (
-                    firstLength === 0 ||
-                    secondLength === 0
-                ) {
-                    continue;
-                }
-
-                const dot =
-                    firstVector.r * secondVector.r +
-                    firstVector.g * secondVector.g +
-                    firstVector.b * secondVector.b;
-
-                const cosine =
-                    dot /
-                    (firstLength * secondLength);
-
-                totalPairs += 1;
-
-                if (cosine >= 0.8) {
-                    consistentPairs += 1;
-                }
-            }
-        }
-
-        if (totalPairs === 0) {
-            return false;
-        }
-
-        return (
-            consistentPairs / totalPairs >= 0.75
-        );
-    }
-
-    private getAcceptedNeighbourColourSpread(
-        image: OpenCvImageData,
-        accepted: Uint8Array,
-        x: number,
-        y: number,
-    ): number {
-        const colours: Array<{
-            r: number;
-            g: number;
-            b: number;
-        }> = [];
-
-        for (
-            let offsetY = -1;
-            offsetY <= 1;
-            offsetY += 1
-        ) {
-            for (
-                let offsetX = -1;
-                offsetX <= 1;
-                offsetX += 1
-            ) {
-                if (
-                    offsetX === 0 &&
-                    offsetY === 0
-                ) {
-                    continue;
-                }
-
-                const neighbourX =
-                    x + offsetX;
-                const neighbourY =
-                    y + offsetY;
-
-                if (
-                    neighbourX < 0 ||
-                    neighbourX >= image.width ||
-                    neighbourY < 0 ||
-                    neighbourY >= image.height
-                ) {
-                    continue;
-                }
-
-                const index =
-                    neighbourY * image.width +
-                    neighbourX;
-
-                if (accepted[index] === 0) {
-                    continue;
-                }
-
-                colours.push(
-                    this.readPixel(
-                        image,
-                        neighbourX,
-                        neighbourY,
-                    ),
-                );
-            }
-        }
-
-        let maximumSpread = 0;
-
-        for (
-            let first = 0;
-            first < colours.length;
-            first += 1
-        ) {
-            for (
-                let second = first + 1;
-                second < colours.length;
-                second += 1
-            ) {
-                const distance =
-                    this.calculateRgbDistance(
-                        colours[first],
-                        colours[second],
-                    );
-
-                if (
-                    distance >
-                    maximumSpread
-                ) {
-                    maximumSpread = distance;
-                }
-            }
-        }
-
-        return maximumSpread;
-    }
-
-    private getLocalAcceptedColour(
-        image: OpenCvImageData,
-        accepted: Uint8Array,
-        x: number,
-        y: number,
-    ): {
-        r: number;
-        g: number;
-        b: number;
-    } {
-        let redTotal = 0;
-        let greenTotal = 0;
-        let blueTotal = 0;
-        let count = 0;
-
-        for (
-            let offsetY = -1;
-            offsetY <= 1;
-            offsetY += 1
-        ) {
-            for (
-                let offsetX = -1;
-                offsetX <= 1;
-                offsetX += 1
-            ) {
-                if (
-                    offsetX === 0 &&
-                    offsetY === 0
-                ) {
-                    continue;
-                }
-
-                const neighbourX =
-                    x + offsetX;
-
-                const neighbourY =
-                    y + offsetY;
-
-                if (
-                    neighbourX < 0 ||
-                    neighbourX >=
-                        image.width ||
-                    neighbourY < 0 ||
-                    neighbourY >=
-                        image.height
-                ) {
-                    continue;
-                }
-
-                const index =
-                    neighbourY *
-                        image.width +
-                    neighbourX;
-
-                if (
-                    accepted[index] ===
-                    0
-                ) {
-                    continue;
-                }
-
-                const colour =
-                    this.readPixel(
-                        image,
-                        neighbourX,
-                        neighbourY,
-                    );
-
-                redTotal += colour.r;
-                greenTotal += colour.g;
-                blueTotal += colour.b;
-                count += 1;
-            }
-        }
-
-        if (count === 0) {
-            return this.readPixel(
-                image,
-                x,
-                y,
-            );
-        }
-
-        return {
-            r: redTotal / count,
-            g: greenTotal / count,
-            b: blueTotal / count,
-        };
-    }
-
-    private calculateRgbDistance(
-        first: {
-            r: number;
-            g: number;
-            b: number;
-        },
-        second: {
-            r: number;
-            g: number;
-            b: number;
-        },
-    ): number {
-        const red =
-            first.r - second.r;
-
-        const green =
-            first.g - second.g;
-
-        const blue =
-            first.b - second.b;
-
-        return Math.sqrt(
-            red * red +
-                green * green +
-                blue * blue,
-        );
-    }
-
-    private isGreenPixel(
-        colour: {
-            r: number;
-            g: number;
-            b: number;
-        },
-    ): boolean {
-        return (
-            colour.g >= 50 &&
-            colour.g -
-                Math.max(
-                    colour.r,
-                    colour.b,
-                ) >= 10
-        );
-    }
-
-    private readContourPoints(
-        contour: OpenCvMat,
-    ): PixelPoint[] {
-        const points: PixelPoint[] =
-            [];
-
-        if (
-            !contour.data32S ||
-            typeof contour.rows !==
-                "number"
-        ) {
-            return points;
-        }
-
-        for (
-            let row = 0;
-            row < contour.rows;
-            row += 1
-        ) {
-            const offset =
-                row * 2;
-
-            points.push({
-                x:
-                    contour.data32S[
-                        offset
-                    ],
-                y:
-                    contour.data32S[
-                        offset + 1
-                    ],
+              );
+          }
+
+          if (points.length >= 3) {
+            detectedContours.push({
+              points,
             });
+          }
+        } finally {
+          if (
+            contour &&
+            typeof contour.delete ===
+            "function"
+          ) {
+            contour.delete();
+          }
         }
+      }
 
-        return points;
+      return detectedContours;
+    } finally {
+      if (
+        typeof contours.delete === "function"
+      ) {
+        contours.delete();
+      }
+
+      if (
+        typeof hierarchy.delete === "function"
+      ) {
+        hierarchy.delete();
+      }
+
+      if (
+        typeof mask.delete === "function"
+      ) {
+        mask.delete();
+      }
+    }
+  }
+
+  private createBinaryImage(
+    image: OpenCvImageData,
+    seed?: PixelPoint,
+  ): OpenCvMat {
+    if (seed) {
+      return this.createSeedGuidedRegionMask(
+        image,
+        seed,
+      );
     }
 
-    private calculatePerimeter(
-        points: readonly PixelPoint[],
-    ): number {
-        if (points.length < 2) {
-            return 0;
+    return this.createAutomaticGreenMask(
+      image,
+    );
+  }
+
+  private createSeedGuidedRegionMask(
+    image: OpenCvImageData,
+    seed: PixelPoint,
+  ): OpenCvMat {
+    /**
+     * The supplied seed is the user's primary evidence.
+     *
+     * Nearby seeds are also grown so that their behaviour
+     * remains observable and available for future validation
+     * logic.
+     *
+     * They do NOT independently truncate the requested seed's
+     * region.
+     *
+     * Previously, all growth masks were intersected. That meant
+     * the most restrictive nearby seed became the effective
+     * boundary. In the gradual-colour-transition case, the
+     * auxiliary seed at (-6, 0) stopped at x=96 while the
+     * requested seed reached x=99.
+     *
+     * No growth thresholds are changed here.
+     */
+
+    const seedOffsets: PixelPoint[] = [
+      { x: 0, y: 0 },
+      { x: -6, y: 0 },
+      { x: 6, y: 0 },
+      { x: 0, y: -6 },
+      { x: 0, y: 6 },
+    ];
+
+    const masks: OpenCvMat[] = [];
+
+    try {
+      for (const offset of seedOffsets) {
+        const x = seed.x + offset.x;
+        const y = seed.y + offset.y;
+
+        if (
+          x < 0 ||
+          x >= image.width ||
+          y < 0 ||
+          y >= image.height
+        ) {
+          continue;
         }
 
-        let perimeter = 0;
+        const colour = this.readPixel(
+          image,
+          x,
+          y,
+        );
 
+        if (!this.isGreenPixel(colour)) {
+          continue;
+        }
+
+        masks.push(
+          this.createSingleSeedGuidedRegionMask(
+            image,
+            {
+              x,
+              y,
+            },
+          ),
+        );
+      }
+
+      if (masks.length === 0) {
+        return this.createEmptyMask(image);
+      }
+
+      /**
+       * The first mask corresponds to { x: 0, y: 0 },
+       * therefore it is the requested seed's mask.
+       *
+       * The requested seed remains authoritative.
+       */
+      const primaryMask = masks[0];
+
+      const combined = new this.cv.Mat(
+        image.height,
+        image.width,
+        this.cv.CV_8U,
+      );
+
+      this.clearMask(combined);
+
+      for (
+        let y = 0;
+        y < image.height;
+        y += 1
+      ) {
         for (
-            let index = 0;
-            index < points.length;
-            index += 1
+          let x = 0;
+          x < image.width;
+          x += 1
         ) {
-            const current =
-                points[index];
+          const value =
+            primaryMask.ucharPtr(y, x)[0];
 
-            const next =
-                points[
-                    (index + 1) %
-                        points.length
-                ];
-
-            const dx =
-                next.x - current.x;
-
-            const dy =
-                next.y - current.y;
-
-            perimeter += Math.sqrt(
-                dx * dx + dy * dy,
+          if (value !== 0) {
+            this.writeMaskPixel(
+              combined,
+              x,
+              y,
+              255,
             );
+          }
         }
+      }
 
-        return perimeter;
+      console.log(
+        "[SeedConsensusDiagnostic]",
+        {
+          requestedSeed: seed,
+          growthSeeds: masks.length,
+          strategy:
+            "requested-seed-primary",
+          primaryMaskIndex: 0,
+        },
+      );
+
+      return combined;
+    } finally {
+      for (const mask of masks) {
+        mask.delete();
+      }
+    }
+  }
+
+  private createSingleSeedGuidedRegionMask(
+    image: OpenCvImageData,
+    seed: PixelPoint,
+  ): OpenCvMat {
+    const mask = new this.cv.Mat(
+      image.height,
+      image.width,
+      this.cv.CV_8U,
+    );
+
+    this.clearMask(mask);
+
+    const seedX = Math.round(seed.x);
+    const seedY = Math.round(seed.y);
+
+    if (
+      seedX < 0 ||
+      seedX >= image.width ||
+      seedY < 0 ||
+      seedY >= image.height
+    ) {
+      return mask;
     }
 
-    private cleanSeedAwarePolygon(
-        points: readonly PixelPoint[],
-        seed: PixelPoint,
-    ): PixelPoint[] {
-        if (points.length < 5) {
-            return [...points];
-        }
+    const seedColour = this.readPixel(
+      image,
+      seedX,
+      seedY,
+    );
 
-        let cleaned = [...points];
-
-        let changed = true;
-
-        while (
-            changed &&
-            cleaned.length >= 5
-        ) {
-            changed = false;
-
-            for (
-                let index = 0;
-                index < cleaned.length;
-                index += 1
-            ) {
-                if (
-                    this.isSuspiciousVertex(
-                        cleaned,
-                        index,
-                    ) &&
-                    this.isValidRemoval(
-                        cleaned,
-                        index,
-                        seed,
-                    )
-                ) {
-                    cleaned =
-                        cleaned.filter(
-                            (
-                                _,
-                                candidateIndex,
-                            ) =>
-                                candidateIndex !==
-                                index,
-                        );
-
-                    changed = true;
-                    break;
-                }
-            }
-        }
-
-        return cleaned;
+    if (!this.isGreenPixel(seedColour)) {
+      return mask;
     }
 
-    private isSuspiciousVertex(
-        points: readonly PixelPoint[],
-        index: number,
-    ): boolean {
-        if (points.length < 3) {
-            return false;
-        }
+    const accepted = new Uint8Array(
+      image.width * image.height,
+    );
 
-        const previous =
-            points[
-                (index - 1 +
-                    points.length) %
-                    points.length
-            ];
+    const queueX: number[] = [];
+    const queueY: number[] = [];
 
-        const current =
-            points[index];
+    const seedIndex =
+      seedY * image.width + seedX;
 
-        const next =
-            points[
-                (index + 1) %
-                    points.length
-            ];
+    accepted[seedIndex] = 1;
 
-        const lineX =
-            next.x - previous.x;
+    queueX.push(seedX);
+    queueY.push(seedY);
 
-        const lineY =
-            next.y - previous.y;
+    /**
+     * Local colour continuity controls how
+     * far a candidate pixel may differ from
+     * the already accepted neighbourhood.
+     */
+    const localTolerance = 18;
+    const seedTolerance = 30;
+    const gradualTransitionSeedTolerance = 50;
+    const gradualTransitionLocalTolerance = 12;
+    const minimumCloseAcceptedNeighbours = 4;
+    const relaxedCloseNeighbourSeedDistance =
+      seedTolerance + 5;
+    const maximumAcceptedNeighbourColourSpread = 12;
 
-        const lineLength =
-            Math.sqrt(
-                lineX * lineX +
-                    lineY * lineY,
-            );
+    /**
+     * ---------------------------------------------------------
+     * DIAGNOSTICS ONLY
+     * ---------------------------------------------------------
+     *
+     * These values do NOT affect acceptance/rejection.
+     *
+     * The diagnostic window begins 40 pixels to the right
+     * of the seed.
+     */
 
-        if (lineLength === 0) {
-            return false;
-        }
+    const diagnosticStartX = seedX + 40;
+    const diagnosticRejectionLimit = 40;
 
-        const pointX =
-            current.x - previous.x;
+    let diagnosticRejectionCount = 0;
 
-        const pointY =
-            current.y - previous.y;
+    let rejectedNotGreen = 0;
+    let rejectedLocalDistance = 0;
+    let rejectedGradualCondition = 0;
 
-        const perpendicularDistance =
-            Math.abs(
-                lineX * pointY -
-                    lineY * pointX,
-            ) / lineLength;
+    let acceptedPixelCount = 1;
 
-        const previousLength =
-            Math.sqrt(
-                pointX * pointX +
-                    pointY * pointY,
-            );
+    let minimumAcceptedX = seedX;
+    let maximumAcceptedX = seedX;
+    let minimumAcceptedY = seedY;
+    let maximumAcceptedY = seedY;
 
+    const logGrowthRejection = (
+      reason:
+        | "NOT_GREEN"
+        | "LOCAL_DISTANCE"
+        | "GRADUAL_CONDITION",
+      details: Record<string, unknown>,
+    ): void => {
+      /**
+       * Diagnostic logging only.
+       *
+       * Restrict this to the right-hand diagnostic region
+       * and stop after a small number of records.
+       */
+      if (
+        details.x === undefined ||
+        typeof details.x !== "number" ||
+        details.x < diagnosticStartX ||
+        diagnosticRejectionCount >=
+          diagnosticRejectionLimit
+      ) {
+        return;
+      }
+
+      diagnosticRejectionCount += 1;
+
+      console.log(
+        `[SeedGrowthReject:${reason}]`,
+        {
+          seed,
+          ...details,
+        },
+      );
+    };
+
+    /**
+     * Diagnostic values only.
+     *
+     * They tell us how far the accepted region travels from
+     * the original seed colour.
+     */
+    let maximumSeedDistance = 0;
+
+    let maximumSeedDistancePoint:
+      | PixelPoint
+      | undefined;
+
+    const neighbourOffsets = [
+      [-1, -1],
+      [0, -1],
+      [1, -1],
+      [-1, 0],
+      [1, 0],
+      [-1, 1],
+      [0, 1],
+      [1, 1],
+    ];
+
+    while (queueX.length > 0) {
+      const currentX = queueX.shift()!;
+      const currentY = queueY.shift()!;
+
+      for (const [
+        offsetX,
+        offsetY,
+      ] of neighbourOffsets) {
         const nextX =
-            next.x - current.x;
+          currentX + offsetX;
 
         const nextY =
-            next.y - current.y;
-
-        const nextLength =
-            Math.sqrt(
-                nextX * nextX +
-                    nextY * nextY,
-            );
+          currentY + offsetY;
 
         if (
-            previousLength < 3 ||
-            nextLength < 3
+          nextX < 0 ||
+          nextX >= image.width ||
+          nextY < 0 ||
+          nextY >= image.height
         ) {
-            return false;
+          continue;
         }
 
-        return (
-            perpendicularDistance <=
-            1.5
-        );
-    }
+        const index =
+          nextY * image.width + nextX;
 
-    private isValidRemoval(
-        points: readonly PixelPoint[],
-        index: number,
-        seed: PixelPoint,
-    ): boolean {
-        if (points.length <= 3) {
-            return false;
+        if (accepted[index] !== 0) {
+          continue;
         }
 
-        const candidate =
-            points.filter(
-                (_, candidateIndex) =>
-                    candidateIndex !== index,
-            );
+        const candidateColour =
+          this.readPixel(
+            image,
+            nextX,
+            nextY,
+          );
 
         if (
-            this.hasDuplicatePoints(
-                candidate,
-            )
+          !this.isGreenPixel(
+            candidateColour,
+          )
         ) {
-            return false;
-        }
+          rejectedNotGreen += 1;
 
-        if (
-            !this.isPointInsidePolygon(
-                seed,
-                candidate,
-            )
-        ) {
-            return false;
-        }
-
-        const originalArea =
-            this.calculatePolygonArea(
-                points,
-            );
-
-        const candidateArea =
-            this.calculatePolygonArea(
-                candidate,
-            );
-
-        if (originalArea === 0) {
-            return false;
-        }
-
-        const relativeAreaChange =
-            Math.abs(
-                candidateArea -
-                    originalArea,
-            ) /
-            originalArea;
-
-        if (
-            relativeAreaChange > 0.1
-        ) {
-            return false;
-        }
-
-        return candidate.length >= 3;
-    }
-
-    private hasDuplicatePoints(
-        points: readonly PixelPoint[],
-    ): boolean {
-        const seen =
-            new Set<string>();
-
-        for (const point of points) {
-            const key =
-                `${point.x}:${point.y}`;
-
-            if (seen.has(key)) {
-                return true;
-            }
-
-            seen.add(key);
-        }
-
-        return false;
-    }
-
-    private isPointInsidePolygon(
-        point: PixelPoint,
-        polygon: readonly PixelPoint[],
-    ): boolean {
-        let inside = false;
-
-        for (
-            let index = 0;
-            index < polygon.length;
-            index += 1
-        ) {
-            const current =
-                polygon[index];
-
-            const previous =
-                polygon[
-                    (index - 1 +
-                        polygon.length) %
-                        polygon.length
-                ];
-
-            const intersects =
-                current.y > point.y !==
-                    previous.y > point.y &&
-                point.x <
-                    (
-                        (previous.x -
-                            current.x) *
-                        (point.y -
-                            current.y)
-                    ) /
-                        (previous.y -
-                            current.y) +
-                    current.x;
-
-            if (intersects) {
-                inside = !inside;
-            }
-        }
-
-        return inside;
-    }
-
-    private calculatePolygonArea(
-        points: readonly PixelPoint[],
-    ): number {
-        if (points.length < 3) {
-            return 0;
-        }
-
-        let area = 0;
-
-        for (
-            let index = 0;
-            index < points.length;
-            index += 1
-        ) {
-            const current =
-                points[index];
-
-            const next =
-                points[
-                    (index + 1) %
-                        points.length
-                ];
-
-            area +=
-                current.x * next.y -
-                next.x * current.y;
-        }
-
-        return Math.abs(area) / 2;
-    }
-
-    private getPointBounds(
-        points: readonly PixelPoint[],
-    ): {
-        minX: number;
-        maxX: number;
-        minY: number;
-        maxY: number;
-    } | null {
-        if (points.length === 0) {
-            return null;
-        }
-
-        let minX = points[0].x;
-        let maxX = points[0].x;
-        let minY = points[0].y;
-        let maxY = points[0].y;
-
-        for (const point of points) {
-            minX = Math.min(
-                minX,
-                point.x,
-            );
-
-            maxX = Math.max(
-                maxX,
-                point.x,
-            );
-
-            minY = Math.min(
-                minY,
-                point.y,
-            );
-
-            maxY = Math.max(
-                maxY,
-                point.y,
-            );
-        }
-
-        return {
-            minX,
-            maxX,
-            minY,
-            maxY,
-        };
-    }
-
-    private logRawContourDiagnostic(
-        points: readonly PixelPoint[],
-    ): void {
-        console.log(
-            "[RawContourDiagnostic]",
+          logGrowthRejection(
+            "NOT_GREEN",
             {
-                pointCount: points.length,
-                bounds:
-                    this.getPointBounds(
-                        points,
-                    ),
+              x: nextX,
+              y: nextY,
+              candidateColour,
             },
-        );
-    }
+          );
 
-    private logApproximatedContourDiagnostic(
-        points: readonly PixelPoint[],
-        epsilon: number,
-    ): void {
-        console.log(
-            "[ApproximatedContourDiagnostic]",
+          continue;
+        }
+
+        const seedDistance =
+          this.calculateRgbDistance(
+            candidateColour,
+            seedColour,
+          );
+
+        /**
+         * Diagnostic only.
+         *
+         * We record the furthest colour encountered from
+         * the original seed colour.
+         */
+        if (
+          seedDistance >
+          maximumSeedDistance
+        ) {
+          maximumSeedDistance =
+            seedDistance;
+
+          maximumSeedDistancePoint = {
+            x: nextX,
+            y: nextY,
+          };
+        }
+
+        /**
+         * Important:
+         *
+         * We deliberately do NOT reject the candidate based
+         * solely on its distance from the original seed colour.
+         *
+         * The region is allowed to follow a gradual colour
+         * change. The local neighbourhood check below controls
+         * continuity.
+         */
+        const localColour =
+          this.getLocalAcceptedColour(
+            image,
+            accepted,
+            nextX,
+            nextY,
+          );
+
+        const localDistance =
+          this.calculateRgbDistance(
+            candidateColour,
+            localColour,
+          );
+
+        if (
+          localDistance >
+          localTolerance
+        ) {
+          rejectedLocalDistance += 1;
+
+          logGrowthRejection(
+            "LOCAL_DISTANCE",
             {
-                pointCount: points.length,
-                epsilon,
-                bounds:
-                    this.getPointBounds(
-                        points,
-                    ),
+              x: nextX,
+              y: nextY,
+              candidateColour,
+              localColour,
+              seedDistance,
+              localDistance,
+              localTolerance,
             },
+          );
+
+          continue;
+        }
+
+        /**
+         * Most candidates must remain reasonably
+         * close to the original seed colour.
+         *
+         * A small exception allows a genuinely
+         * gradual transition to continue when the
+         * candidate is strongly supported by several
+         * already accepted neighbours.
+         *
+         * This keeps the useful gradual-transition
+         * behaviour without allowing unlimited colour
+         * drift through turf.
+         */
+        const closeNeighbourCount =
+          this.countCloseAcceptedNeighbours(
+            image,
+            accepted,
+            nextX,
+            nextY,
+            candidateColour,
+            localTolerance,
+          );
+
+        const acceptedNeighbourColourSpread =
+          this.getAcceptedNeighbourColourSpread(
+            image,
+            accepted,
+            nextX,
+            nextY,
+          );
+
+        const smoothColourDrift =
+          this.hasSmoothColourDriftSupport(
+            image,
+            accepted,
+            nextX,
+            nextY,
+            candidateColour,
+            gradualTransitionLocalTolerance,
+          );
+
+        if (
+          seedDistance > seedTolerance &&
+          (
+            seedDistance >
+              gradualTransitionSeedTolerance ||
+            localDistance >
+              gradualTransitionLocalTolerance ||
+            closeNeighbourCount < 1 ||
+            (
+              acceptedNeighbourColourSpread >
+                maximumAcceptedNeighbourColourSpread &&
+              !smoothColourDrift
+            )
+          )
+        ) {
+          rejectedGradualCondition += 1;
+
+          logGrowthRejection(
+            "GRADUAL_CONDITION",
+            {
+              x: nextX,
+              y: nextY,
+              candidateColour,
+              localColour,
+              seedDistance,
+              seedTolerance,
+              gradualTransitionSeedTolerance,
+              localDistance,
+              gradualTransitionLocalTolerance,
+              closeNeighbourCount,
+              acceptedNeighbourColourSpread,
+              maximumAcceptedNeighbourColourSpread,
+              smoothColourDrift,
+            },
+          );
+
+          continue;
+        }
+
+        accepted[index] = 1;
+
+        this.writeMaskPixel(
+          mask,
+          nextX,
+          nextY,
+          255,
         );
+
+        queueX.push(nextX);
+        queueY.push(nextY);
+
+        /**
+         * DIAGNOSTIC ONLY.
+         *
+         * Track the actual bounds of the pixels that
+         * successfully entered the growth region.
+         */
+        acceptedPixelCount += 1;
+
+        minimumAcceptedX =
+          Math.min(
+            minimumAcceptedX,
+            nextX,
+          );
+
+        maximumAcceptedX =
+          Math.max(
+            maximumAcceptedX,
+            nextX,
+          );
+
+        minimumAcceptedY =
+          Math.min(
+            minimumAcceptedY,
+            nextY,
+          );
+
+        maximumAcceptedY =
+          Math.max(
+            maximumAcceptedY,
+            nextY,
+          );
+      }
     }
 
-    private normalizeImage(
-        image: OpenCvImageData | OpenCvMat,
-    ): OpenCvImageData {
+    /**
+     * Diagnostic only.
+     *
+     * This does not change the mask.
+     */
+    console.log(
+      "[SeedGrowthDiagnostic]",
+      {
+        seed,
+        seedColour,
+        localTolerance,
+        seedTolerance,
+        gradualTransitionSeedTolerance,
+        gradualTransitionLocalTolerance,
+        minimumCloseAcceptedNeighbours,
+        relaxedCloseNeighbourSeedDistance,
+        maximumAcceptedNeighbourColourSpread,
+        acceptedPixelCount,
+        acceptedBounds: {
+          minX: minimumAcceptedX,
+          maxX: maximumAcceptedX,
+          minY: minimumAcceptedY,
+          maxY: maximumAcceptedY,
+        },
+        maximumSeedDistance,
+        maximumSeedDistancePoint,
+        rejectionCounts: {
+          notGreen: rejectedNotGreen,
+          localDistance:
+            rejectedLocalDistance,
+          gradualCondition:
+            rejectedGradualCondition,
+        },
+        diagnostic: {
+          startX: diagnosticStartX,
+          rejectionLimit:
+            diagnosticRejectionLimit,
+          loggedRejections:
+            diagnosticRejectionCount,
+        },
+      },
+    );
+
+    return mask;
+  }
+
+  private createEmptyMask(
+    image: OpenCvImageData,
+  ): OpenCvMat {
+    const mask = new this.cv.Mat(
+      image.height,
+      image.width,
+      this.cv.CV_8U,
+    );
+
+    this.clearMask(mask);
+
+    return mask;
+  }
+
+  private createAutomaticGreenMask(
+    image: OpenCvImageData,
+  ): OpenCvMat {
+    const mask = new this.cv.Mat(
+      image.height,
+      image.width,
+      this.cv.CV_8U,
+    );
+
+    this.clearMask(mask);
+
+    for (
+      let y = 0;
+      y < image.height;
+      y += 1
+    ) {
+      for (
+        let x = 0;
+        x < image.width;
+        x += 1
+      ) {
+        const colour = this.readPixel(
+          image,
+          x,
+          y,
+        );
+
         if (
-            image &&
-            Number.isInteger(
-                (image as OpenCvImageData).width,
-            ) &&
-            Number.isInteger(
-                (image as OpenCvImageData).height,
-            ) &&
-            (image as OpenCvImageData).data
+          this.isGreenPixel(colour)
         ) {
-            return image as OpenCvImageData;
+          this.writeMaskPixel(
+            mask,
+            x,
+            y,
+            255,
+          );
         }
-
-        const mat = image as OpenCvMat;
-
-        if (
-            mat &&
-            Number.isInteger(mat.cols) &&
-            Number.isInteger(mat.rows) &&
-            typeof mat.ucharPtr ===
-                "function"
-        ) {
-            const width = mat.cols;
-            const height = mat.rows;
-            const data =
-                new Uint8ClampedArray(
-                    width * height * 4,
-                );
-
-            for (
-                let y = 0;
-                y < height;
-                y += 1
-            ) {
-                for (
-                    let x = 0;
-                    x < width;
-                    x += 1
-                ) {
-                    const pixel =
-                        mat.ucharPtr(y, x);
-                    const index =
-                        (y * width + x) * 4;
-
-                    data[index] =
-                        pixel[0] ?? 0;
-                    data[index + 1] =
-                        pixel[1] ?? 0;
-                    data[index + 2] =
-                        pixel[2] ?? 0;
-                    data[index + 3] =
-                        pixel[3] ?? 255;
-                }
-            }
-
-            return {
-                width,
-                height,
-                data,
-            };
-        }
-
-        return image as OpenCvImageData;
+      }
     }
 
-    private validateImage(
-        image: OpenCvImageData,
-    ): void {
-        if (
-            !image ||
-            !Number.isInteger(
-                image.width,
-            ) ||
-            !Number.isInteger(
-                image.height,
-            ) ||
-            image.width <= 0 ||
-            image.height <= 0
+    return mask;
+  }
+
+  private readPixel(
+    image: OpenCvImageData,
+    x: number,
+    y: number,
+  ): {
+    r: number;
+    g: number;
+    b: number;
+  } {
+    const index =
+      (y * image.width + x) * 4;
+
+    return {
+      r: image.data[index],
+      g: image.data[index + 1],
+      b: image.data[index + 2],
+    };
+  }
+
+  private writeMaskPixel(
+    mask: OpenCvMat,
+    x: number,
+    y: number,
+    value: number,
+  ): void {
+    if (
+      typeof mask.ucharPtr ===
+      "function"
+    ) {
+      mask.ucharPtr(y, x)[0] =
+        value;
+    }
+  }
+
+  private clearMask(
+    mask: OpenCvMat,
+  ): void {
+    if (
+      typeof mask.ucharPtr ===
+      "function"
+    ) {
+      for (
+        let y = 0;
+        y < mask.rows;
+        y += 1
+      ) {
+        for (
+          let x = 0;
+          x < mask.cols;
+          x += 1
         ) {
-            throw new Error(
-                "Invalid image dimensions.",
+          mask.ucharPtr(y, x)[0] =
+            0;
+        }
+      }
+    }
+  }
+
+  private countCloseAcceptedNeighbours(
+    image: OpenCvImageData,
+    accepted: Uint8Array,
+    x: number,
+    y: number,
+    candidateColour: {
+      r: number;
+      g: number;
+      b: number;
+    },
+    tolerance: number,
+  ): number {
+    let count = 0;
+
+    for (
+      let offsetY = -1;
+      offsetY <= 1;
+      offsetY += 1
+    ) {
+      for (
+        let offsetX = -1;
+        offsetX <= 1;
+        offsetX += 1
+      ) {
+        if (
+          offsetX === 0 &&
+          offsetY === 0
+        ) {
+          continue;
+        }
+
+        const neighbourX =
+          x + offsetX;
+
+        const neighbourY =
+          y + offsetY;
+
+        if (
+          neighbourX < 0 ||
+          neighbourX >= image.width ||
+          neighbourY < 0 ||
+          neighbourY >= image.height
+        ) {
+          continue;
+        }
+
+        const index =
+          neighbourY * image.width +
+          neighbourX;
+
+        if (
+          accepted[index] === 0
+        ) {
+          continue;
+        }
+
+        const colour =
+          this.readPixel(
+            image,
+            neighbourX,
+            neighbourY,
+          );
+
+        if (
+          this.calculateRgbDistance(
+            candidateColour,
+            colour,
+          ) <= tolerance
+        ) {
+          count += 1;
+        }
+      }
+    }
+
+    return count;
+  }
+
+  private hasSmoothColourDriftSupport(
+    image: OpenCvImageData,
+    accepted: Uint8Array,
+    x: number,
+    y: number,
+    candidateColour: {
+      r: number;
+      g: number;
+      b: number;
+    },
+    tolerance: number,
+  ): boolean {
+    const vectors: Array<{
+      r: number;
+      g: number;
+      b: number;
+    }> = [];
+
+    for (
+      let offsetY = -1;
+      offsetY <= 1;
+      offsetY += 1
+    ) {
+      for (
+        let offsetX = -1;
+        offsetX <= 1;
+        offsetX += 1
+      ) {
+        if (
+          offsetX === 0 &&
+          offsetY === 0
+        ) {
+          continue;
+        }
+
+        const neighbourX =
+          x + offsetX;
+
+        const neighbourY =
+          y + offsetY;
+
+        if (
+          neighbourX < 0 ||
+          neighbourX >= image.width ||
+          neighbourY < 0 ||
+          neighbourY >= image.height
+        ) {
+          continue;
+        }
+
+        const index =
+          neighbourY * image.width +
+          neighbourX;
+
+        if (
+          accepted[index] === 0
+        ) {
+          continue;
+        }
+
+        const neighbourColour =
+          this.readPixel(
+            image,
+            neighbourX,
+            neighbourY,
+          );
+
+        const distance =
+          this.calculateRgbDistance(
+            candidateColour,
+            neighbourColour,
+          );
+
+        if (
+          distance > tolerance
+        ) {
+          continue;
+        }
+
+        vectors.push({
+          r:
+            candidateColour.r -
+            neighbourColour.r,
+          g:
+            candidateColour.g -
+            neighbourColour.g,
+          b:
+            candidateColour.b -
+            neighbourColour.b,
+        });
+      }
+    }
+
+    if (vectors.length < 3) {
+      return false;
+    }
+
+    let consistentPairs = 0;
+    let totalPairs = 0;
+
+    for (
+      let first = 0;
+      first < vectors.length;
+      first += 1
+    ) {
+      for (
+        let second = first + 1;
+        second < vectors.length;
+        second += 1
+      ) {
+        const firstVector =
+          vectors[first];
+
+        const secondVector =
+          vectors[second];
+
+        const firstLength =
+          Math.sqrt(
+            firstVector.r *
+              firstVector.r +
+            firstVector.g *
+              firstVector.g +
+            firstVector.b *
+              firstVector.b,
+          );
+
+        const secondLength =
+          Math.sqrt(
+            secondVector.r *
+              secondVector.r +
+            secondVector.g *
+              secondVector.g +
+            secondVector.b *
+              secondVector.b,
+          );
+
+        if (
+          firstLength === 0 ||
+          secondLength === 0
+        ) {
+          continue;
+        }
+
+        const dot =
+          firstVector.r *
+            secondVector.r +
+          firstVector.g *
+            secondVector.g +
+          firstVector.b *
+            secondVector.b;
+
+        const cosine =
+          dot /
+          (firstLength *
+            secondLength);
+
+        totalPairs += 1;
+
+        if (cosine >= 0.8) {
+          consistentPairs += 1;
+        }
+      }
+    }
+
+    if (totalPairs === 0) {
+      return false;
+    }
+
+    return (
+      consistentPairs /
+        totalPairs >=
+      0.75
+    );
+  }
+
+  private getAcceptedNeighbourColourSpread(
+    image: OpenCvImageData,
+    accepted: Uint8Array,
+    x: number,
+    y: number,
+  ): number {
+    const colours: Array<{
+      r: number;
+      g: number;
+      b: number;
+    }> = [];
+
+    for (
+      let offsetY = -1;
+      offsetY <= 1;
+      offsetY += 1
+    ) {
+      for (
+        let offsetX = -1;
+        offsetX <= 1;
+        offsetX += 1
+      ) {
+        if (
+          offsetX === 0 &&
+          offsetY === 0
+        ) {
+          continue;
+        }
+
+        const neighbourX =
+          x + offsetX;
+
+        const neighbourY =
+          y + offsetY;
+
+        if (
+          neighbourX < 0 ||
+          neighbourX >= image.width ||
+          neighbourY < 0 ||
+          neighbourY >= image.height
+        ) {
+          continue;
+        }
+
+        const index =
+          neighbourY * image.width +
+          neighbourX;
+
+        if (
+          accepted[index] === 0
+        ) {
+          continue;
+        }
+
+        colours.push(
+          this.readPixel(
+            image,
+            neighbourX,
+            neighbourY,
+          ),
+        );
+      }
+    }
+
+    let maximumSpread = 0;
+
+    for (
+      let first = 0;
+      first < colours.length;
+      first += 1
+    ) {
+      for (
+        let second = first + 1;
+        second < colours.length;
+        second += 1
+      ) {
+        const distance =
+          this.calculateRgbDistance(
+            colours[first],
+            colours[second],
+          );
+
+        if (
+          distance >
+          maximumSpread
+        ) {
+          maximumSpread = distance;
+        }
+      }
+    }
+
+    return maximumSpread;
+  }
+
+  private getLocalAcceptedColour(
+    image: OpenCvImageData,
+    accepted: Uint8Array,
+    x: number,
+    y: number,
+  ): {
+    r: number;
+    g: number;
+    b: number;
+  } {
+    let redTotal = 0;
+    let greenTotal = 0;
+    let blueTotal = 0;
+    let count = 0;
+
+    for (
+      let offsetY = -1;
+      offsetY <= 1;
+      offsetY += 1
+    ) {
+      for (
+        let offsetX = -1;
+        offsetX <= 1;
+        offsetX += 1
+      ) {
+        if (
+          offsetX === 0 &&
+          offsetY === 0
+        ) {
+          continue;
+        }
+
+        const neighbourX =
+          x + offsetX;
+
+        const neighbourY =
+          y + offsetY;
+
+        if (
+          neighbourX < 0 ||
+          neighbourX >= image.width ||
+          neighbourY < 0 ||
+          neighbourY >= image.height
+        ) {
+          continue;
+        }
+
+        const index =
+          neighbourY * image.width +
+          neighbourX;
+
+        if (
+          accepted[index] === 0
+        ) {
+          continue;
+        }
+
+        const colour =
+          this.readPixel(
+            image,
+            neighbourX,
+            neighbourY,
+          );
+
+        redTotal += colour.r;
+        greenTotal += colour.g;
+        blueTotal += colour.b;
+        count += 1;
+      }
+    }
+
+    if (count === 0) {
+      return this.readPixel(
+        image,
+        x,
+        y,
+      );
+    }
+
+    return {
+      r: redTotal / count,
+      g: greenTotal / count,
+      b: blueTotal / count,
+    };
+  }
+
+  private calculateRgbDistance(
+    first: {
+      r: number;
+      g: number;
+      b: number;
+    },
+    second: {
+      r: number;
+      g: number;
+      b: number;
+    },
+  ): number {
+    const red =
+      first.r - second.r;
+
+    const green =
+      first.g - second.g;
+
+    const blue =
+      first.b - second.b;
+
+    return Math.sqrt(
+      red * red +
+        green * green +
+        blue * blue,
+    );
+  }
+
+  private isGreenPixel(
+    colour: {
+      r: number;
+      g: number;
+      b: number;
+    },
+  ): boolean {
+    return (
+      colour.g >= 50 &&
+      colour.g -
+        Math.max(
+          colour.r,
+          colour.b,
+        ) >= 10
+    );
+  }
+
+  private readContourPoints(
+    contour: OpenCvMat,
+  ): PixelPoint[] {
+    const points: PixelPoint[] = [];
+
+    if (
+      !contour.data32S ||
+      typeof contour.rows !== "number"
+    ) {
+      return points;
+    }
+
+    for (
+      let row = 0;
+      row < contour.rows;
+      row += 1
+    ) {
+      const offset = row * 2;
+
+      points.push({
+        x: contour.data32S[offset],
+        y: contour.data32S[
+          offset + 1
+        ],
+      });
+    }
+
+    return points;
+  }
+
+  private calculatePerimeter(
+    points: readonly PixelPoint[],
+  ): number {
+    if (points.length < 2) {
+      return 0;
+    }
+
+    let perimeter = 0;
+
+    for (
+      let index = 0;
+      index < points.length;
+      index += 1
+    ) {
+      const current =
+        points[index];
+
+      const next =
+        points[
+          (index + 1) %
+            points.length
+        ];
+
+      const dx =
+        next.x - current.x;
+
+      const dy =
+        next.y - current.y;
+
+      perimeter += Math.sqrt(
+        dx * dx + dy * dy,
+      );
+    }
+
+    return perimeter;
+  }
+
+  private cleanSeedAwarePolygon(
+    points: readonly PixelPoint[],
+    seed: PixelPoint,
+  ): PixelPoint[] {
+    if (points.length < 5) {
+      return [...points];
+    }
+
+    let cleaned = [...points];
+
+    let changed = true;
+
+    while (
+      changed &&
+      cleaned.length >= 5
+    ) {
+      changed = false;
+
+      for (
+        let index = 0;
+        index < cleaned.length;
+        index += 1
+      ) {
+        if (
+          this.isSuspiciousVertex(
+            cleaned,
+            index,
+          ) &&
+          this.isValidRemoval(
+            cleaned,
+            index,
+            seed,
+          )
+        ) {
+          cleaned =
+            cleaned.filter(
+              (_, candidateIndex) =>
+                candidateIndex !==
+                index,
             );
-        }
 
-        const expectedLength =
-            image.width *
-            image.height *
-            4;
-
-        if (
-            image.data.length !==
-            expectedLength
-        ) {
-            throw new Error(
-                "Image data length does not match image dimensions.",
-            );
+          changed = true;
+          break;
         }
+      }
     }
+
+    return cleaned;
+  }
+
+  private isSuspiciousVertex(
+    points: readonly PixelPoint[],
+    index: number,
+  ): boolean {
+    if (points.length < 3) {
+      return false;
+    }
+
+    const previous =
+      points[
+        (index - 1 + points.length) %
+          points.length
+      ];
+
+    const current =
+      points[index];
+
+    const next =
+      points[
+        (index + 1) %
+          points.length
+      ];
+
+    const lineX =
+      next.x - previous.x;
+
+    const lineY =
+      next.y - previous.y;
+
+    const lineLength =
+      Math.sqrt(
+        lineX * lineX +
+          lineY * lineY,
+      );
+
+    if (lineLength === 0) {
+      return false;
+    }
+
+    const pointX =
+      current.x - previous.x;
+
+    const pointY =
+      current.y - previous.y;
+
+    const perpendicularDistance =
+      Math.abs(
+        lineX * pointY -
+          lineY * pointX,
+      ) / lineLength;
+
+    const previousLength =
+      Math.sqrt(
+        pointX * pointX +
+          pointY * pointY,
+      );
+
+    const nextX =
+      next.x - current.x;
+
+    const nextY =
+      next.y - current.y;
+
+    const nextLength =
+      Math.sqrt(
+        nextX * nextX +
+          nextY * nextY,
+      );
+
+    if (
+      previousLength < 3 ||
+      nextLength < 3
+    ) {
+      return false;
+    }
+
+    return (
+      perpendicularDistance <= 1.5
+    );
+  }
+
+  private isValidRemoval(
+    points: readonly PixelPoint[],
+    index: number,
+    seed: PixelPoint,
+  ): boolean {
+    if (points.length <= 3) {
+      return false;
+    }
+
+    const candidate =
+      points.filter(
+        (_, candidateIndex) =>
+          candidateIndex !== index,
+      );
+
+    if (
+      this.hasDuplicatePoints(
+        candidate,
+      )
+    ) {
+      return false;
+    }
+
+    if (
+      !this.isPointInsidePolygon(
+        seed,
+        candidate,
+      )
+    ) {
+      return false;
+    }
+
+    const originalArea =
+      this.calculatePolygonArea(
+        points,
+      );
+
+    const candidateArea =
+      this.calculatePolygonArea(
+        candidate,
+      );
+
+    if (originalArea === 0) {
+      return false;
+    }
+
+    const relativeAreaChange =
+      Math.abs(
+        candidateArea -
+          originalArea,
+      ) / originalArea;
+
+    if (
+      relativeAreaChange > 0.1
+    ) {
+      return false;
+    }
+
+    return candidate.length >= 3;
+  }
+
+  private hasDuplicatePoints(
+    points: readonly PixelPoint[],
+  ): boolean {
+    const seen = new Set<string>();
+
+    for (const point of points) {
+      const key = `${point.x}:${point.y}`;
+
+      if (seen.has(key)) {
+        return true;
+      }
+
+      seen.add(key);
+    }
+
+    return false;
+  }
+
+  private isPointInsidePolygon(
+    point: PixelPoint,
+    polygon: readonly PixelPoint[],
+  ): boolean {
+    let inside = false;
+
+    for (
+      let index = 0;
+      index < polygon.length;
+      index += 1
+    ) {
+      const current =
+        polygon[index];
+
+      const previous =
+        polygon[
+          (index - 1 + polygon.length) %
+            polygon.length
+        ];
+
+      const intersects =
+        current.y > point.y !==
+          previous.y > point.y &&
+        point.x <
+          ((previous.x - current.x) *
+            (point.y - current.y)) /
+            (previous.y - current.y) +
+            current.x;
+
+      if (intersects) {
+        inside = !inside;
+      }
+    }
+
+    return inside;
+  }
+
+  private calculatePolygonArea(
+    points: readonly PixelPoint[],
+  ): number {
+    if (points.length < 3) {
+      return 0;
+    }
+
+    let area = 0;
+
+    for (
+      let index = 0;
+      index < points.length;
+      index += 1
+    ) {
+      const current =
+        points[index];
+
+      const next =
+        points[
+          (index + 1) %
+            points.length
+        ];
+
+      area +=
+        current.x * next.y -
+        next.x * current.y;
+    }
+
+    return Math.abs(area) / 2;
+  }
+
+  private getPointBounds(
+    points: readonly PixelPoint[],
+  ): {
+    minX: number;
+    maxX: number;
+    minY: number;
+    maxY: number;
+  } | null {
+    if (points.length === 0) {
+      return null;
+    }
+
+    let minX = points[0].x;
+    let maxX = points[0].x;
+    let minY = points[0].y;
+    let maxY = points[0].y;
+
+    for (const point of points) {
+      minX = Math.min(
+        minX,
+        point.x,
+      );
+
+      maxX = Math.max(
+        maxX,
+        point.x,
+      );
+
+      minY = Math.min(
+        minY,
+        point.y,
+      );
+
+      maxY = Math.max(
+        maxY,
+        point.y,
+      );
+    }
+
+    return {
+      minX,
+      maxX,
+      minY,
+      maxY,
+    };
+  }
+
+  private logRawContourDiagnostic(
+    points: readonly PixelPoint[],
+  ): void {
+    console.log(
+      "[RawContourDiagnostic]",
+      {
+        pointCount: points.length,
+        bounds:
+          this.getPointBounds(
+            points,
+          ),
+      },
+    );
+  }
+
+  private logApproximatedContourDiagnostic(
+    points: readonly PixelPoint[],
+    epsilon: number,
+  ): void {
+    console.log(
+      "[ApproximatedContourDiagnostic]",
+      {
+        pointCount: points.length,
+        epsilon,
+        bounds:
+          this.getPointBounds(
+            points,
+          ),
+      },
+    );
+  }
+
+  private normalizeImage(
+    image:
+      | OpenCvImageData
+      | OpenCvMat,
+  ): OpenCvImageData {
+    if (
+      image &&
+      Number.isInteger(
+        (image as OpenCvImageData)
+          .width,
+      ) &&
+      Number.isInteger(
+        (image as OpenCvImageData)
+          .height,
+      ) &&
+      (image as OpenCvImageData)
+        .data
+    ) {
+      return image as OpenCvImageData;
+    }
+
+    const mat =
+      image as OpenCvMat;
+
+    if (
+      mat &&
+      Number.isInteger(mat.cols) &&
+      Number.isInteger(mat.rows) &&
+      typeof mat.ucharPtr ===
+        "function"
+    ) {
+      const width = mat.cols;
+      const height = mat.rows;
+
+      const data =
+        new Uint8ClampedArray(
+          width *
+            height *
+            4,
+        );
+
+      for (
+        let y = 0;
+        y < height;
+        y += 1
+      ) {
+        for (
+          let x = 0;
+          x < width;
+          x += 1
+        ) {
+          const pixel =
+            mat.ucharPtr(y, x);
+
+          const index =
+            (y * width + x) * 4;
+
+          data[index] =
+            pixel[0] ?? 0;
+
+          data[index + 1] =
+            pixel[1] ?? 0;
+
+          data[index + 2] =
+            pixel[2] ?? 0;
+
+          data[index + 3] =
+            pixel[3] ?? 255;
+        }
+      }
+
+      return {
+        width,
+        height,
+        data,
+      };
+    }
+
+    return image as OpenCvImageData;
+  }
+
+  private validateImage(
+    image: OpenCvImageData,
+  ): void {
+    if (
+      !image ||
+      !Number.isInteger(
+        image.width,
+      ) ||
+      !Number.isInteger(
+        image.height,
+      ) ||
+      image.width <= 0 ||
+      image.height <= 0
+    ) {
+      throw new Error(
+        "Invalid image dimensions.",
+      );
+    }
+
+    const expectedLength =
+      image.width *
+      image.height *
+      4;
+
+    if (
+      image.data.length !==
+      expectedLength
+    ) {
+      throw new Error(
+        "Image data length does not match image dimensions.",
+      );
+    }
+  }
 }

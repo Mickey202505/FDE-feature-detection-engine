@@ -357,7 +357,7 @@ export class OpenCvJsAdapter {
      * far a candidate pixel may differ from
      * the already accepted neighbourhood.
      */
-    const localTolerance = 18;
+    const localTolerance = 12;
     const seedTolerance = 30;
     const gradualTransitionSeedTolerance = 50;
     const gradualTransitionLocalTolerance = 12;

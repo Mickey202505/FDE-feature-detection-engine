@@ -185,7 +185,10 @@ export class OpenCvJsAdapter {
      *
      * No growth thresholds are changed here.
      */
-
+    return this.createSeedGuidedRegionMask(
+      image,
+      seed,
+  );
     const seedOffsets: PixelPoint[] = [
       { x: 0, y: 0 },
       { x: -6, y: 0 },

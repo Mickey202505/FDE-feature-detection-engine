@@ -86,6 +86,36 @@ function getBounds(points: readonly PixelPoint[]) {
     );
 }
 
+function writeMaskImage(
+    mask: OpenCvMat,
+    outputPath: string,
+) {
+    const png = new PNG({
+        width: mask.cols,
+        height: mask.rows,
+    });
+
+    for (let y = 0; y < mask.rows; y += 1) {
+        for (let x = 0; x < mask.cols; x += 1) {
+            const value =
+                mask.ucharPtr(y, x)[0];
+
+            const offset =
+                (y * mask.cols + x) * 4;
+
+            png.data[offset] = value;
+            png.data[offset + 1] = value;
+            png.data[offset + 2] = value;
+            png.data[offset + 3] = 255;
+        }
+    }
+
+    writeFileSync(
+        outputPath,
+        PNG.sync.write(png),
+    );
+}
+
 function drawLine(
     png: PNG,
     x0: number,
@@ -461,6 +491,21 @@ describe("OpenCvJs green detection", () => {
                 x: 450,
                 y: 350,
             };
+
+            const mask =
+                adapter.createSeedGuidedRegionMaskForDiagnostics(
+                imageData,
+                seed,
+            );
+
+        try {
+            writeMaskImage(
+              mask,
+             "tests/fixtures/golf-green-growth-mask.png",
+            );
+        } finally {
+            mask.delete();
+        }
 
             const contours =
                 adapter.findContours(

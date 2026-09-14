@@ -147,7 +147,7 @@ export class OpenCvJsAdapter {
     }
   }
 
-  private createBinaryImage(
+   private createBinaryImage(
     image: OpenCvImageData,
     seed?: PixelPoint,
   ): OpenCvMat {
@@ -160,6 +160,16 @@ export class OpenCvJsAdapter {
 
     return this.createAutomaticGreenMask(
       image,
+    );
+  }
+
+  public createSeedGuidedRegionMaskForDiagnostics(
+    image: OpenCvImageData,
+    seed: PixelPoint,
+  ): any {
+    return this.createSeedGuidedRegionMask(
+      image,
+      seed,
     );
   }
 
@@ -185,10 +195,6 @@ export class OpenCvJsAdapter {
      *
      * No growth thresholds are changed here.
      */
-    return this.createSeedGuidedRegionMask(
-      image,
-      seed,
-  );
     const seedOffsets: PixelPoint[] = [
       { x: 0, y: 0 },
       { x: -6, y: 0 },

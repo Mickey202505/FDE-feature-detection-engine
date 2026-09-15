@@ -1,4 +1,5 @@
 import type { OpenCvMat } from "../../src/application/opencv/OpenCvTypes";
+import type { PixelPoint } from "../../src/core/geometry/SeedAwarePolygonCleaner";
 
 export function maskToAscii(
   mask: OpenCvMat,
@@ -26,4 +27,32 @@ export function maskToAscii(
   }
 
   return lines.join("\n");
+}
+
+export function maskToRayAscii(
+  points: readonly PixelPoint[],
+  imageWidth: number,
+  imageHeight: number,
+  outputCols: number = 80,
+  outputRows: number = 30,
+): string {
+  const grid: string[][] = [];
+
+  for (let r = 0; r < outputRows; r += 1) {
+    grid.push(new Array(outputCols).fill("."));
+  }
+
+  for (const point of points) {
+    const col = Math.min(
+      outputCols - 1,
+      Math.max(0, Math.floor((point.x / imageWidth) * outputCols)),
+    );
+    const row = Math.min(
+      outputRows - 1,
+      Math.max(0, Math.floor((point.y / imageHeight) * outputRows)),
+    );
+    grid[row][col] = "O";
+  }
+
+  return grid.map((row) => row.join("")).join("\n");
 }

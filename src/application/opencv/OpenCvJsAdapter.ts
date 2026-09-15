@@ -749,35 +749,6 @@ export class OpenCvJsAdapter {
     return mask;
   }
 
-import type { PixelPoint } from "../../src/core/geometry/SeedAwarePolygonCleaner";
-
-export function maskToRayAscii(
-    points: readonly PixelPoint[],
-    imageWidth: number,
-    imageHeight: number,
-    outputCols: number = 80,
-    outputRows: number = 30,
-): string {
-    const grid: string[][] = [];
-
-    for (let r = 0; r < outputRows; r += 1) {
-        grid.push(new Array(outputCols).fill("."));
-    }
-
-    for (const point of points) {
-        const col = Math.min(
-            outputCols - 1,
-            Math.max(0, Math.floor((point.x / imageWidth) * outputCols)),
-        );
-        const row = Math.min(
-            outputRows - 1,
-            Math.max(0, Math.floor((point.y / imageHeight) * outputRows)),
-        );
-        grid[row][col] = "O";
-    }
-
-    return grid.map((row) => row.join("")).join("\n");
-}
 
   public extractBoundaryByRaysForDiagnostics(
     mask: OpenCvMat,
@@ -826,6 +797,157 @@ export function maskToRayAscii(
     return points;
   }
 
+  public smoothBoundaryForDiagnostics(
+    points: readonly PixelPoint[],
+  ): PixelPoint[] {
+    return this.smoothBoundary(points);
+  }
+
+  private smoothBoundary(
+    points: readonly PixelPoint[],
+    windowSize: number = 3,
+  ): PixelPoint[] {
+    const n = points.length;
+
+    if (n === 0 || windowSize <= 0) {
+      return [...points];
+    }
+
+    const smoothed: PixelPoint[] = [];
+    const count = windowSize * 2 + 1;
+
+    for (let i = 0; i < n; i += 1) {
+      let sumX = 0;
+      let sumY = 0;
+
+      for (let w = -windowSize; w <= windowSize; w += 1) {
+        const j = (i + w + n) % n;
+        sumX += points[j].x;
+        sumY += points[j].y;
+      }
+
+      smoothed.push({
+        x: Math.round(sumX / count),
+        y: Math.round(sumY / count),
+      });
+    }
+
+    return smoothed;
+  }
+
+    public segmentBoundaryForDiagnostics(
+    points: readonly PixelPoint[],
+  ): PixelPoint[] {
+    return this.segmentBoundary(points);
+  }
+
+  private segmentBoundary(
+    points: readonly PixelPoint[],
+    maxTurnDegrees: number = 20,
+    maxGap: number = 8,
+  ): PixelPoint[] {
+    const n = points.length;
+
+    if (n < 3) {
+      return [...points];
+    }
+
+    const maxTurn = (maxTurnDegrees * Math.PI) / 180;
+    const result: PixelPoint[] = [points[0]];
+
+    let lastGoodIndex = 0;
+    let runDirX = points[1].x - points[0].x;
+    let runDirY = points[1].y - points[0].y;
+    const runLen = Math.hypot(runDirX, runDirY) || 1;
+    runDirX /= runLen;
+    runDirY /= runLen;
+
+    for (let i = 1; i < n; i += 1) {
+      const prev = points[i - 1];
+      const curr = points[i];
+
+      const edgeX = curr.x - prev.x;
+      const edgeY = curr.y - prev.y;
+      const edgeLen = Math.hypot(edgeX, edgeY);
+
+      if (edgeLen === 0) {
+        continue;
+      }
+
+      const edgeDirX = edgeX / edgeLen;
+      const edgeDirY = edgeY / edgeLen;
+
+      const dot = runDirX * edgeDirX + runDirY * edgeDirY;
+      const clamped = Math.max(-1, Math.min(1, dot));
+      const angle = Math.acos(clamped);
+
+      if (angle <= maxTurn) {
+        result.push(curr);
+        lastGoodIndex = i;
+
+        const alpha = 0.5;
+        runDirX = runDirX * (1 - alpha) + edgeDirX * alpha;
+        runDirY = runDirY * (1 - alpha) + edgeDirY * alpha;
+        const newLen = Math.hypot(runDirX, runDirY) || 1;
+        runDirX /= newLen;
+        runDirY /= newLen;
+      } else if (i - lastGoodIndex > maxGap) {
+        result.push(curr);
+        lastGoodIndex = i;
+        runDirX = edgeDirX;
+        runDirY = edgeDirY;
+      }
+    }
+
+    return result;
+  }
+
+  public subsampleToCountForDiagnostics(
+    points: readonly PixelPoint[],
+    targetCount: number,
+  ): PixelPoint[] {
+    return this.subsampleToCount(points, targetCount);
+  }
+
+    private subsampleToCount(
+    points: readonly PixelPoint[],
+    targetCount: number,
+  ): PixelPoint[] {
+    const n = points.length;
+
+    if (n <= targetCount) {
+      return [...points];
+    }
+
+    const segmentLengths: number[] = [];
+    let totalLength = 0;
+
+    for (let i = 0; i < n; i += 1) {
+      const a = points[i];
+      const b = points[(i + 1) % n];
+      const length = Math.hypot(b.x - a.x, b.y - a.y);
+      segmentLengths.push(length);
+      totalLength += length;
+    }
+
+    const desiredSpacing = totalLength / targetCount;
+    const result: PixelPoint[] = [points[0]];
+
+    let accumulated = 0;
+    let nextTarget = desiredSpacing;
+
+    for (let i = 0; i < n; i += 1) {
+      accumulated += segmentLengths[i];
+
+      while (accumulated >= nextTarget && result.length < targetCount) {
+        result.push(points[(i + 1) % n]);
+        nextTarget += desiredSpacing;
+      }
+    }
+
+    return result;
+  }
+  
   private createEmptyMask(
     image: OpenCvImageData,
   ): OpenCvMat {

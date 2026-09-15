@@ -516,6 +516,56 @@ describe("OpenCvJs green detection", () => {
                 imageData.height,
             ),
         );
+        
+        const smoothedPoints =
+            adapter.smoothBoundaryForDiagnostics(rayPoints);
+
+        console.log(
+            "[SmoothedAscii]\n" +
+            maskToRayAscii(
+                smoothedPoints,
+                imageData.width,
+                imageData.height,
+            ),
+        );
+
+        const segmentedPoints =
+            adapter.segmentBoundaryForDiagnostics(smoothedPoints);
+
+        console.log(
+            "[SegmentedCount]",
+            smoothedPoints.length,
+            "->",
+            segmentedPoints.length,
+        );
+
+        console.log(
+            "[SegmentedAscii]\n" +
+            maskToRayAscii(
+                segmentedPoints,
+                imageData.width,
+                imageData.height,
+            ),
+        );
+
+        const finalPoints =
+            adapter.subsampleToCountForDiagnostics(segmentedPoints, 20);
+
+        console.log(
+            "[FinalCount]",
+            segmentedPoints.length,
+            "->",
+            finalPoints.length,
+        );
+
+        console.log(
+            "[FinalAscii]\n" +
+            maskToRayAscii(
+                finalPoints,
+                imageData.width,
+                imageData.height,
+            ),
+        );
 
         // ← INSERT THE ASCII DUMP HERE
 

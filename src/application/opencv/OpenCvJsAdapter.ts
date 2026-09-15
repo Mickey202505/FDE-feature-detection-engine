@@ -749,6 +749,83 @@ export class OpenCvJsAdapter {
     return mask;
   }
 
+import type { PixelPoint } from "../../src/core/geometry/SeedAwarePolygonCleaner";
+
+export function maskToRayAscii(
+    points: readonly PixelPoint[],
+    imageWidth: number,
+    imageHeight: number,
+    outputCols: number = 80,
+    outputRows: number = 30,
+): string {
+    const grid: string[][] = [];
+
+    for (let r = 0; r < outputRows; r += 1) {
+        grid.push(new Array(outputCols).fill("."));
+    }
+
+    for (const point of points) {
+        const col = Math.min(
+            outputCols - 1,
+            Math.max(0, Math.floor((point.x / imageWidth) * outputCols)),
+        );
+        const row = Math.min(
+            outputRows - 1,
+            Math.max(0, Math.floor((point.y / imageHeight) * outputRows)),
+        );
+        grid[row][col] = "O";
+    }
+
+    return grid.map((row) => row.join("")).join("\n");
+}
+
+  public extractBoundaryByRaysForDiagnostics(
+    mask: OpenCvMat,
+    seed: PixelPoint,
+  ): PixelPoint[] {
+    return this.extractBoundaryByRays(mask, seed);
+  }
+
+  private extractBoundaryByRays(
+    mask: OpenCvMat,
+    seed: PixelPoint,
+    rayCount: number = 100,
+  ): PixelPoint[] {
+    const points: PixelPoint[] = [];
+    const maxRadius = Math.max(mask.rows, mask.cols);
+
+    for (let i = 0; i < rayCount; i += 1) {
+      const angle = (i / rayCount) * Math.PI * 2;
+      const dx = Math.cos(angle);
+      const dy = Math.sin(angle);
+
+      let lastWhiteX = Math.round(seed.x);
+      let lastWhiteY = Math.round(seed.y);
+
+      for (let r = 1; r < maxRadius; r += 1) {
+        const x = Math.round(seed.x + dx * r);
+        const y = Math.round(seed.y + dy * r);
+
+        if (x < 0 || x >= mask.cols || y < 0 || y >= mask.rows) {
+          break;
+        }
+
+        const value = mask.ucharPtr(y, x)[0];
+
+        if (value === 0) {
+          break;
+        }
+
+        lastWhiteX = x;
+        lastWhiteY = y;
+      }
+
+      points.push({ x: lastWhiteX, y: lastWhiteY });
+    }
+
+    return points;
+  }
+
   private createEmptyMask(
     image: OpenCvImageData,
   ): OpenCvMat {

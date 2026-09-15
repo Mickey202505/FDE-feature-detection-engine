@@ -1,4 +1,4 @@
-import { maskToAscii } from "../helpers/maskAscii";
+import { maskToAscii, maskToRayAscii } from "../helpers/maskAscii";
 import { readFileSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { PNG } from "pngjs";
@@ -502,6 +502,21 @@ describe("OpenCvJs green detection", () => {
         console.log(
             "[AsciiMask]\n" + maskToAscii(mask),
         );
+
+        const rayPoints =
+            adapter.extractBoundaryByRaysForDiagnostics(mask, seed);
+
+        console.log("[RayCast] count:", rayPoints.length);
+
+        console.log(
+            "[RayCastAscii]\n" +
+            maskToRayAscii(
+                rayPoints,
+                imageData.width,
+                imageData.height,
+            ),
+        );
+
         // ← INSERT THE ASCII DUMP HERE
 
         try {

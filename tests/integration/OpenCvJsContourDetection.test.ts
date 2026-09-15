@@ -500,7 +500,8 @@ describe("OpenCvJs green detection", () => {
         );
 
         console.log(
-            "[AsciiMask]\n" + maskToAscii(mask),
+            "[AsciiMask]\n" +
+            maskToAscii(mask, 120, 45),
         );
 
         const rayPoints =
@@ -513,8 +514,7 @@ describe("OpenCvJs green detection", () => {
             maskToRayAscii(
                 rayPoints,
                 imageData.width,
-                imageData.height,
-            ),
+                imageData.height, 120, 45),
         );
         
         const smoothedPoints =
@@ -569,8 +569,14 @@ describe("OpenCvJs green detection", () => {
 
         // ← INSERT THE ASCII DUMP HERE
 
+        writeContourOverlay(
+            imageData,
+            finalPoints,
+            "tests/fixtures/golf-green-raycast.png",
+        );
+
         try {
-            writeMaskImage(
+              writeMaskImage(
               mask,
              "tests/fixtures/golf-green-growth-mask.png",
             );

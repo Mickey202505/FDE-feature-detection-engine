@@ -114,6 +114,7 @@ export interface OpenCvRuntime {
 
     readonly MORPH_OPEN?: number;
     readonly MORPH_CLOSE?: number;
+    readonly MORPH_ELLIPSE?: number;
 
     readonly matFromImageData?: (
         imageData: OpenCvImageData,

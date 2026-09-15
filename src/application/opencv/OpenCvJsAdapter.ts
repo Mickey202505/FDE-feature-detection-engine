@@ -284,9 +284,9 @@ export class OpenCvJsAdapter {
         }
       }
 
-      console.log(
-        "[SeedConsensusDiagnostic]",
-        {
+        console.log(
+          "[SeedConsensusDiagnostic]",
+         {
           requestedSeed: seed,
           growthSeeds: masks.length,
           strategy:
@@ -294,6 +294,59 @@ export class OpenCvJsAdapter {
           primaryMaskIndex: 0,
         },
       );
+
+      // Fill small holes and connect nearby specks in the mask.
+      // Without this, rays stop at internal black spots inside
+      // the green and the boundary cuts inward.
+      const closeKernel = this.cv.getStructuringElement!(
+        this.cv.MORPH_ELLIPSE!,
+        new this.cv.Size!(5, 5),
+      );
+
+      const closedMask = new this.cv.Mat(
+        image.height,
+        image.width,
+        this.cv.CV_8U,
+      );
+
+      try {
+        this.cv.morphologyEx!(
+          combined,
+          closedMask,
+          this.cv.MORPH_CLOSE!,
+          closeKernel,
+        );
+
+        return closedMask;
+      } finally {
+        (closeKernel as { delete?: () => void }).delete?.();
+        combined.delete();
+      }
+
+
+      // Fill small holes and connect nearby specks in the mask.
+      // This is what stops rays from stopping early at internal
+      // black spots inside the green.
+      const closeKernel = this.cv.getStructuringElement(
+        this.cv.MORPH_ELLIPSE,
+        new this.cv.Size(5, 5),
+      );
+
+      const closedMask = new this.cv.Mat();
+
+      try {
+        this.cv.morphologyEx(
+          combined,
+          closedMask,
+          this.cv.MORPH_CLOSE,
+          closeKernel,
+        );
+
+        return closedMask;
+      } finally {
+        closeKernel.delete();
+        combined.delete();
+      }
 
       return combined;
     } finally {
@@ -947,7 +1000,7 @@ export class OpenCvJsAdapter {
 
     return result;
   }
-  
+
   private createEmptyMask(
     image: OpenCvImageData,
   ): OpenCvMat {

@@ -383,8 +383,8 @@ export class OpenCvJsAdapter {
      * the already accepted neighbourhood.
      */
     const localTolerance = 12;
-    const seedTolerance = 30;
-    const gradualTransitionSeedTolerance = 35;
+    const seedTolerance = 22;
+    const gradualTransitionSeedTolerance = 25;
     const gradualTransitionLocalTolerance = 12;
     const minimumCloseAcceptedNeighbours = 4;
     const relaxedCloseNeighbourSeedDistance =
@@ -640,7 +640,7 @@ export class OpenCvJsAdapter {
             gradualTransitionLocalTolerance,
           );
 
-        if (
+          if (
           seedDistance > seedTolerance &&
           (
             seedDistance >

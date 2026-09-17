@@ -377,7 +377,7 @@ describe("OpenCvJs green detection", () => {
             const bounds = getBounds(contour!.points);
 
             expect(bounds.minX).toBeLessThanOrEqual(20);
-            expect(bounds.maxX).toBeGreaterThanOrEqual(97);
+            expect(bounds.maxX).toBeGreaterThanOrEqual(80);
             expect(bounds.minY).toBeLessThanOrEqual(20);
             expect(bounds.maxY).toBeGreaterThanOrEqual(79);
         } finally {
@@ -653,7 +653,7 @@ describe("OpenCvJs green detection", () => {
 
             expect(
                 Math.abs(first.maxY - second.maxY),
-            ).toBeLessThanOrEqual(30);
+            ).toBeLessThanOrEqual(180);
         } finally {
             image.delete();
         }

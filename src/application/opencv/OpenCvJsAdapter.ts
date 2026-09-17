@@ -300,7 +300,7 @@ export class OpenCvJsAdapter {
       // the green and the boundary cuts inward.
       const closeKernel = this.cv.getStructuringElement!(
         this.cv.MORPH_ELLIPSE!,
-        new this.cv.Size!(5, 5),
+        new this.cv.Size!(25, 25),
       );
 
       const closedMask = new this.cv.Mat(
@@ -317,38 +317,14 @@ export class OpenCvJsAdapter {
           closeKernel,
         );
 
+        this.fillInternalHoles(closedMask);
+
         return closedMask;
       } finally {
         (closeKernel as { delete?: () => void }).delete?.();
         combined.delete();
       }
 
-
-      // Fill small holes and connect nearby specks in the mask.
-      // This is what stops rays from stopping early at internal
-      // black spots inside the green.
-      const closeKernel = this.cv.getStructuringElement(
-        this.cv.MORPH_ELLIPSE,
-        new this.cv.Size(5, 5),
-      );
-
-      const closedMask = new this.cv.Mat();
-
-      try {
-        this.cv.morphologyEx(
-          combined,
-          closedMask,
-          this.cv.MORPH_CLOSE,
-          closeKernel,
-        );
-
-        return closedMask;
-      } finally {
-        closeKernel.delete();
-        combined.delete();
-      }
-
-      return combined;
     } finally {
       for (const mask of masks) {
         mask.delete();
@@ -412,7 +388,7 @@ export class OpenCvJsAdapter {
      */
     const localTolerance = 12;
     const seedTolerance = 30;
-    const gradualTransitionSeedTolerance = 50;
+    const gradualTransitionSeedTolerance = 35;
     const gradualTransitionLocalTolerance = 12;
     const minimumCloseAcceptedNeighbours = 4;
     const relaxedCloseNeighbourSeedDistance =
@@ -447,10 +423,7 @@ export class OpenCvJsAdapter {
     let maximumAcceptedY = seedY;
 
     const logGrowthRejection = (
-      reason:
-        | "NOT_GREEN"
-        | "LOCAL_DISTANCE"
-        | "GRADUAL_CONDITION",
+      reason: string,
       details: Record<string, unknown>,
     ): void => {
       /**
@@ -1111,6 +1084,56 @@ export class OpenCvJsAdapter {
         ) {
           mask.ucharPtr(y, x)[0] =
             0;
+        }
+      }
+    }
+  }
+
+  private fillInternalHoles(mask: OpenCvMat): void {
+    const rows = mask.rows;
+    const cols = mask.cols;
+    const visited = new Uint8Array(rows * cols);
+
+    const queueX: number[] = [];
+    const queueY: number[] = [];
+
+    const pushIfBlack = (x: number, y: number): void => {
+      if (x < 0 || x >= cols || y < 0 || y >= rows) return;
+      const idx = y * cols + x;
+      if (visited[idx] !== 0) return;
+      if (mask.ucharPtr(y, x)[0] !== 0) return;
+      visited[idx] = 1;
+      queueX.push(x);
+      queueY.push(y);
+    };
+
+    for (let x = 0; x < cols; x += 1) {
+      pushIfBlack(x, 0);
+      pushIfBlack(x, rows - 1);
+    }
+
+    for (let y = 0; y < rows; y += 1) {
+      pushIfBlack(0, y);
+      pushIfBlack(cols - 1, y);
+    }
+
+    while (queueX.length > 0) {
+      const x = queueX.shift()!;
+      const y = queueY.shift()!;
+      pushIfBlack(x - 1, y);
+      pushIfBlack(x + 1, y);
+      pushIfBlack(x, y - 1);
+      pushIfBlack(x, y + 1);
+    }
+
+    for (let y = 0; y < rows; y += 1) {
+      for (let x = 0; x < cols; x += 1) {
+        const idx = y * cols + x;
+        if (
+          visited[idx] === 0 &&
+          mask.ucharPtr(y, x)[0] === 0
+        ) {
+          mask.ucharPtr(y, x)[0] = 255;
         }
       }
     }

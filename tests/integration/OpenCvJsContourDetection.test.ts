@@ -39,7 +39,7 @@ function createRgbaImage(
 function loadRealGolfGreenImage(): OpenCvImageData {
     const file =
         readFileSync(
-            "tests/fixtures/golf-green.png",
+            "tests/fixtures/Green_2.png",
         );
 
     const png =
@@ -489,8 +489,8 @@ describe("OpenCvJs green detection", () => {
 
     try {
         const seed: PixelPoint = {
-            x: 450,
-            y: 350,
+            x: 497,
+            y: 364,
         };
 
         const mask =

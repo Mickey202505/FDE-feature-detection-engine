@@ -549,7 +549,7 @@ describe("OpenCvJs green detection", () => {
         );
 
         const finalPoints =
-            adapter.subsampleToCountForDiagnostics(segmentedPoints, 20);
+            adapter.subsampleToCountForDiagnostics(segmentedPoints, 45);
 
         console.log(
             "[FinalCount]",

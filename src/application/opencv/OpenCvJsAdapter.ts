@@ -298,9 +298,9 @@ export class OpenCvJsAdapter {
       // Fill small holes and connect nearby specks in the mask.
       // Without this, rays stop at internal black spots inside
       // the green and the boundary cuts inward.
-      const closeKernel = this.cv.getStructuringElement!(
+            const closeKernel = this.cv.getStructuringElement!(
         this.cv.MORPH_ELLIPSE!,
-        new this.cv.Size!(25, 25),
+        new this.cv.Size!(5, 5),
       );
 
       const closedMask = new this.cv.Mat(
@@ -316,19 +316,15 @@ export class OpenCvJsAdapter {
           this.cv.MORPH_CLOSE!,
           closeKernel,
         );
-
-        this.fillInternalHoles(closedMask);
-
-        return closedMask;
       } finally {
         (closeKernel as { delete?: () => void }).delete?.();
         combined.delete();
       }
 
+      this.fillInternalHoles(closedMask);
+
+      return closedMask;
     } finally {
-      for (const mask of masks) {
-        mask.delete();
-      }
     }
   }
 

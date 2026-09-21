@@ -47,8 +47,8 @@
 
   <script>
     // ---- Configuration ----
-    // Replace with your Google Maps API key
-    const GOOGLE_MAPS_API_KEY = "AIzaSyBZwjdJhym_aXHeBPjA2JnDpV4sh9Jkq2g";
+    // Paste your Google Maps API key here (between the quotes)
+    const GOOGLE_MAPS_API_KEY = "AIzaSyBcT6pNNgyGNtGbVxut_VDdt0lbvaFEDs8";
 
     // Default location — a golf course. Change to whatever you want.
     const DEFAULT_CENTER = { lat: 53.3498, lng: -6.2603 }; // Dublin
@@ -92,24 +92,33 @@
       status.textContent = "Capturing map viewport...";
 
       try {
-        // Capture the map container as an image
         const imageData = await captureMapCanvas();
         if (!imageData) {
           status.textContent = "Failed to capture map";
           return;
         }
 
+        console.log("[Debug] imageData:", imageData.width, "x", imageData.height);
+        console.log("[Debug] seed:", seed.x, seed.y);
+
         status.textContent = "Detecting green...";
 
-        // Run detection
         const polygon = detectGreenPolygon(imageData, seed);
+
+        console.log("[Debug] polygon vertices:", polygon ? polygon.length : 0);
+        if (polygon && polygon.length > 0) {
+          const xs = polygon.map(p => p.x);
+          const ys = polygon.map(p => p.y);
+          console.log("[Debug] polygon bounds:",
+            Math.min(...xs), Math.max(...xs),
+            Math.min(...ys), Math.max(...ys));
+        }
 
         if (!polygon || polygon.length < 3) {
           status.textContent = "No green found at that point";
           return;
         }
 
-        // Draw the polygon on the map
         drawPolygon(polygon);
         lastPolygon = polygon;
         resetBtn.disabled = false;
@@ -123,10 +132,6 @@
     // ---- Capture map container ----
     async function captureMapCanvas() {
       const mapDiv = document.getElementById("map");
-
-      // Google Maps renders tiles as <img> or <canvas> in the map div.
-      // Best approach: use html2canvas if loaded, otherwise draw
-      // the visible tiles onto a canvas manually.
 
       if (typeof html2canvas === "undefined") {
         throw new Error(
@@ -172,7 +177,7 @@
       const queue = [[seed.x, seed.y]];
       visited[seed.y * width + seed.x] = 1;
 
-      const TOLERANCE = 40;
+      const TOLERANCE = 80;
       const NEIGHBOURS = [[-1,0],[1,0],[0,-1],[0,1]];
 
       while (queue.length) {
@@ -295,7 +300,6 @@
       if (seedOverlay) seedOverlay.setMap(null);
 
       const path = points.map((p) => {
-        // Convert canvas pixel back to LatLng using map projection
         const topRight = map.getProjection()
           .fromLatLngToPoint(map.getBounds().getNorthEast());
         const bottomLeft = map.getProjection()
@@ -336,9 +340,9 @@
   <!-- html2canvas for capturing the map -->
   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
-  <!-- Google Maps API — replace YOUR_API_KEY_HERE -->
+  <!-- Google Maps API — paste your key in the URL below, replacing YOUR_API_KEY_HERE -->
   <script
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBZwjdJhym_aXHeBPjA2JnDpV4sh9Jkq2g&callback=initMap"
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBcT6pNNgyGNtGbVxut_VDdt0lbvaFEDs8&callback=initMap"
     async defer
   ></script>
 </body>

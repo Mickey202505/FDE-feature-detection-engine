@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>FDE Green Detector — Maps Tester</title>
+  <style>
+    html, body { height: 100%; margin: 0; font-family: sans-serif; }
+    #map { height: 100%; width: 100%; }
+    #panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.95);
+      padding: 12px 16px;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      font-size: 13px;
+      max-width: 320px;
+    }
+    #panel h3 { margin: 0 0 8px; font-size: 14px; }
+    #panel button {
+      background: #1a73e8;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      margin-right: 6px;
+    }
+    #panel button:disabled { background: #aaa; cursor: default; }
+    #status { margin-top: 8px; color: #555; font-size: 12px; }
+    #coords { font-family: monospace; font-size: 12px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="panel">
+    <h3>FDE Green Detector</h3>
+    <div>1. Right-click a green to set the seed</div>
+    <div>2. Detection runs automatically</div>
+    <div>3. Reset clears the polygon</div>
+    <button id="resetBtn" disabled>Reset</button>
+    <div id="coords">Seed: —</div>
+    <div id="status">Waiting for seed click...</div>
+  </div>
+
+  <script>
+    // ---- Configuration ----
+    // Replace with your Google Maps API key
+    const GOOGLE_MAPS_API_KEY = "AIzaSyBZwjdJhym_aXHeBPjA2JnDpV4sh9Jkq2g";
+
+    // Default location — a golf course. Change to whatever you want.
+    const DEFAULT_CENTER = { lat: 53.3498, lng: -6.2603 }; // Dublin
+    const DEFAULT_ZOOM = 19;
+
+    // ---- State ----
+    let map;
+    let seedOverlay = null;
+    let polygonOverlay = null;
+    let lastPolygon = null;
+
+    // ---- Map init ----
+    function initMap() {
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: DEFAULT_CENTER,
+        zoom: DEFAULT_ZOOM,
+        mapTypeId: "satellite",
+        tilt: 0,
+        disableDefaultUI: true,
+        zoomControl: true,
+      });
+
+      // Right-click to set seed (so normal left-drag still pans the map)
+      map.addListener("rightclick", (event) => {
+        event.domEvent.preventDefault();
+        const seed = {
+          x: event.pixel.x,
+          y: event.pixel.y,
+        };
+        document.getElementById("coords").textContent =
+          `Seed: (${seed.x}, ${seed.y})`;
+        runDetection(seed);
+      });
+    }
+
+    // ---- Detection ----
+    async function runDetection(seed) {
+      const status = document.getElementById("status");
+      const resetBtn = document.getElementById("resetBtn");
+
+      status.textContent = "Capturing map viewport...";
+
+      try {
+        // Capture the map container as an image
+        const imageData = await captureMapCanvas();
+        if (!imageData) {
+          status.textContent = "Failed to capture map";
+          return;
+        }
+
+        status.textContent = "Detecting green...";
+
+        // Run detection
+        const polygon = detectGreenPolygon(imageData, seed);
+
+        if (!polygon || polygon.length < 3) {
+          status.textContent = "No green found at that point";
+          return;
+        }
+
+        // Draw the polygon on the map
+        drawPolygon(polygon);
+        lastPolygon = polygon;
+        resetBtn.disabled = false;
+        status.textContent = `Found ${polygon.length} vertices`;
+      } catch (err) {
+        console.error(err);
+        status.textContent = "Error: " + err.message;
+      }
+    }
+
+    // ---- Capture map container ----
+    async function captureMapCanvas() {
+      const mapDiv = document.getElementById("map");
+
+      // Google Maps renders tiles as <img> or <canvas> in the map div.
+      // Best approach: use html2canvas if loaded, otherwise draw
+      // the visible tiles onto a canvas manually.
+
+      if (typeof html2canvas === "undefined") {
+        throw new Error(
+          "html2canvas not loaded — add the script tag to the HTML head",
+        );
+      }
+
+      const canvas = await html2canvas(mapDiv, {
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: null,
+        logging: false,
+      });
+
+      const ctx = canvas.getContext("2d");
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      return {
+        width: imageData.width,
+        height: imageData.height,
+        data: imageData.data,
+      };
+    }
+
+    // ---- Detection pipeline (ported from OpenCvJsAdapter) ----
+    function detectGreenPolygon(imageData, seed) {
+      const { width, height, data } = imageData;
+
+      const readPixel = (x, y) => {
+        const i = (y * width + x) * 4;
+        return { r: data[i], g: data[i + 1], b: data[i + 2] };
+      };
+
+      const dist = (a, b) =>
+        Math.sqrt(
+          (a.r - b.r) ** 2 + (a.g - b.g) ** 2 + (a.b - b.b) ** 2,
+        );
+
+      // 1. Flood fill from seed (green-family pixels)
+      const seedColour = readPixel(seed.x, seed.y);
+      const mask = new Uint8Array(width * height);
+      const visited = new Uint8Array(width * height);
+      const queue = [[seed.x, seed.y]];
+      visited[seed.y * width + seed.x] = 1;
+
+      const TOLERANCE = 40;
+      const NEIGHBOURS = [[-1,0],[1,0],[0,-1],[0,1]];
+
+      while (queue.length) {
+        const [cx, cy] = queue.shift();
+        const idx = cy * width + cx;
+        mask[idx] = 1;
+        for (const [dx, dy] of NEIGHBOURS) {
+          const nx = cx + dx, ny = cy + dy;
+          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+          const nIdx = ny * width + nx;
+          if (visited[nIdx]) continue;
+          const col = readPixel(nx, ny);
+          if (dist(col, seedColour) <= TOLERANCE) {
+            visited[nIdx] = 1;
+            queue.push([nx, ny]);
+          }
+        }
+      }
+
+      // 2. Ray-cast boundary
+      const RAY_COUNT = 100;
+      const points = [];
+      for (let i = 0; i < RAY_COUNT; i++) {
+        const angle = (i / RAY_COUNT) * Math.PI * 2;
+        const dx = Math.cos(angle);
+        const dy = Math.sin(angle);
+        let lastX = seed.x, lastY = seed.y;
+        for (let r = 1; r < Math.max(width, height); r++) {
+          const x = Math.round(seed.x + dx * r);
+          const y = Math.round(seed.y + dy * r);
+          if (x < 0 || x >= width || y < 0 || y >= height) break;
+          if (mask[y * width + x] !== 1) break;
+          lastX = x;
+          lastY = y;
+        }
+        points.push({ x: lastX, y: lastY });
+      }
+
+      // 3. Smooth (moving average, window 3)
+      const smooth = (pts, w) => {
+        const n = pts.length;
+        const out = [];
+        for (let i = 0; i < n; i++) {
+          let sx = 0, sy = 0;
+          for (let k = -w; k <= w; k++) {
+            const j = (i + k + n) % n;
+            sx += pts[j].x;
+            sy += pts[j].y;
+          }
+          out.push({ x: Math.round(sx / (2 * w + 1)), y: Math.round(sy / (2 * w + 1)) });
+        }
+        return out;
+      };
+      const smoothed = smooth(points, 3);
+
+      // 4. Segment — bridge sharp excursions
+      const segmented = [smoothed[0]];
+      let lastGood = 0;
+      let dirX = smoothed[1].x - smoothed[0].x;
+      let dirY = smoothed[1].y - smoothed[0].y;
+      const dirLen = Math.hypot(dirX, dirY) || 1;
+      dirX /= dirLen; dirY /= dirLen;
+      const MAX_TURN = (20 * Math.PI) / 180;
+      const MAX_GAP = 8;
+
+      for (let i = 1; i < smoothed.length; i++) {
+        const prev = smoothed[i - 1];
+        const curr = smoothed[i];
+        const ex = curr.x - prev.x;
+        const ey = curr.y - prev.y;
+        const el = Math.hypot(ex, ey);
+        if (el === 0) continue;
+        const edx = ex / el, edy = ey / el;
+        const dot = Math.max(-1, Math.min(1, dirX * edx + dirY * edy));
+        const angle = Math.acos(dot);
+        if (angle <= MAX_TURN) {
+          segmented.push(curr);
+          lastGood = i;
+          const alpha = 0.5;
+          dirX = dirX * (1 - alpha) + edx * alpha;
+          dirY = dirY * (1 - alpha) + edy * alpha;
+          const newLen = Math.hypot(dirX, dirY) || 1;
+          dirX /= newLen; dirY /= newLen;
+        } else if (i - lastGood > MAX_GAP) {
+          segmented.push(curr);
+          lastGood = i;
+          dirX = edx; dirY = edy;
+        }
+      }
+
+      // 5. Subsample to 40 vertices, arc-length based
+      const TARGET = 40;
+      const n = segmented.length;
+      if (n <= TARGET) return segmented;
+      const lengths = [];
+      let total = 0;
+      for (let i = 0; i < n; i++) {
+        const a = segmented[i];
+        const b = segmented[(i + 1) % n];
+        const len = Math.hypot(b.x - a.x, b.y - a.y);
+        lengths.push(len);
+        total += len;
+      }
+      const spacing = total / TARGET;
+      const result = [segmented[0]];
+      let acc = 0, next = spacing;
+      for (let i = 0; i < n; i++) {
+        acc += lengths[i];
+        while (acc >= next && result.length < TARGET) {
+          result.push(segmented[(i + 1) % n]);
+          next += spacing;
+        }
+      }
+      return result;
+    }
+
+    // ---- Drawing ----
+    function drawPolygon(points) {
+      if (polygonOverlay) polygonOverlay.setMap(null);
+      if (seedOverlay) seedOverlay.setMap(null);
+
+      const path = points.map((p) => {
+        // Convert canvas pixel back to LatLng using map projection
+        const topRight = map.getProjection()
+          .fromLatLngToPoint(map.getBounds().getNorthEast());
+        const bottomLeft = map.getProjection()
+          .fromLatLngToPoint(map.getBounds().getSouthWest());
+        const scale = Math.pow(2, map.getZoom());
+        const worldPoint = new google.maps.Point(
+          p.x / scale + bottomLeft.x,
+          p.y / scale + topRight.y,
+        );
+        return map.getProjection().fromPointToLatLng(worldPoint);
+      });
+
+      polygonOverlay = new google.maps.Polygon({
+        paths: path,
+        strokeColor: "#00ff00",
+        strokeOpacity: 1,
+        strokeWeight: 3,
+        fillColor: "#00ff00",
+        fillOpacity: 0.15,
+        map: map,
+      });
+    }
+
+    // ---- Reset ----
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      if (polygonOverlay) polygonOverlay.setMap(null);
+      if (seedOverlay) seedOverlay.setMap(null);
+      polygonOverlay = null;
+      seedOverlay = null;
+      document.getElementById("resetBtn").disabled = true;
+      document.getElementById("coords").textContent = "Seed: —";
+      document.getElementById("status").textContent = "Waiting for seed click...";
+    });
+
+    window.initMap = initMap;
+  </script>
+
+  <!-- html2canvas for capturing the map -->
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
+  <!-- Google Maps API — replace YOUR_API_KEY_HERE -->
+  <script
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBZwjdJhym_aXHeBPjA2JnDpV4sh9Jkq2g&callback=initMap"
+    async defer
+  ></script>
+</body>
+</html>

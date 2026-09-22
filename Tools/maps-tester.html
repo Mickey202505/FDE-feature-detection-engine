@@ -82,6 +82,7 @@
         tilt: 0,
         disableDefaultUI: true,
         zoomControl: true,
+        disableDoubleClickZoom: true,   // ← add this
       });
 
       // Right-click to set seed (so normal left-drag still pans the map)
@@ -478,8 +479,12 @@
       google.maps.event.clearListeners(polygonOverlay, "dblclick");
       let lastInsertTime = 0;
       polygonOverlay.addListener("dblclick", (event) => {
+        console.log("[dblclick] fired at", event.latLng.toJSON());
         const now = Date.now();
-        if (now - lastInsertTime < 300) return;
+        if (now - lastInsertTime < 300) {
+          console.log("[dblclick] debounced");
+          return;
+        }
         lastInsertTime = now;
 
         const clickedPixel = latLngToPixel(event.latLng);
@@ -496,12 +501,16 @@
           if (d < bestDist) { bestDist = d; bestIdx = i; }
         }
 
-        // Reject if too close to any existing vertex
+             // Reject if too close to any existing vertex
         for (const p of editablePolygon) {
-          if (Math.hypot(clickedPixel.x - p.x, clickedPixel.y - p.y) < MIN_VERTEX_DISTANCE) return;
+          if (Math.hypot(clickedPixel.x - p.x, clickedPixel.y - p.y) < MIN_VERTEX_DISTANCE) {
+            console.log("[dblclick] rejected: too close to existing vertex");
+            return;
+          }
         }
 
         editablePolygon.splice(bestIdx + 1, 0, clickedPixel);
+        console.log("[dblclick] inserted at index", bestIdx + 1);
         redrawEditable();
       });
     }

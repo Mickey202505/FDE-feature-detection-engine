@@ -118,6 +118,24 @@
 
         const polygon = detectGreenPolygon(imageData, seed);
 
+        // Filter out vertices that are too close to their neighbours
+        const filtered = [];
+        for (let i = 0; i < polygon.length; i++) {
+          const curr = polygon[i];
+          const prev = filtered[filtered.length - 1];
+          if (!prev || Math.hypot(curr.x - prev.x, curr.y - prev.y) >= MIN_VERTEX_DISTANCE) {
+            filtered.push(curr);
+          }
+        }
+        // Ensure last-to-first distance also respects the minimum
+        if (filtered.length >= 2) {
+          const first = filtered[0];
+          const last = filtered[filtered.length - 1];
+          if (Math.hypot(first.x - last.x, first.y - last.y) < MIN_VERTEX_DISTANCE) {
+            filtered.pop();
+          }
+        }
+
         const testCanvas = document.createElement("canvas");
         testCanvas.width = imageData.width;
         testCanvas.height = imageData.height;
@@ -138,7 +156,7 @@
         link.style.padding = "10px";
         document.body.appendChild(link);
 
-        console.log("[Debug] polygon vertices:", polygon ? polygon.length : 0);
+          console.log("[Debug] polygon vertices:", polygon ? polygon.length : 0);
         console.log("[Debug] window:", window.innerWidth, "x", window.innerHeight);
         if (polygon && polygon.length > 0) {
           const xs = polygon.map(p => p.x);
@@ -147,16 +165,17 @@
             Math.min(...xs), Math.max(...xs),
             Math.min(...ys), Math.max(...ys));
         }
+        console.log("[Debug] filtered vertices:", filtered.length);
 
-        if (!polygon || polygon.length < 3) {
+        if (!filtered || filtered.length < 3) {
           status.textContent = "No green found at that point";
           return;
         }
 
-        drawPolygon(polygon);
-        lastPolygon = polygon;
+        drawPolygon(filtered);
+        lastPolygon = filtered;
         resetBtn.disabled = false;
-        status.textContent = `Found ${polygon.length} vertices`;
+        status.textContent = `Found ${filtered.length} vertices`;
       } catch (err) {
         console.error(err);
         status.textContent = "Error: " + err.message;
@@ -454,7 +473,6 @@
       attachPolygonDblClick();
     }
 
-     // Double-click a segment to insert a vertex
     // Double-click a segment to insert a vertex
     function attachPolygonDblClick() {
       google.maps.event.clearListeners(polygonOverlay, "dblclick");
@@ -507,7 +525,7 @@
 
   <!-- Google Maps API — paste your key in the URL below, replacing YOUR_API_KEY_HERE -->
   <script
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBcT6pNNgyGNtGbVxut_VDdt0lbvaFEDs8&callback=initMap"
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBi97FiR9e68-it6_OK2BHOxHnTq3BLSbg&callback=initMap"
     async defer
   ></script>
 </body>

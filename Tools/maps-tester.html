@@ -54,24 +54,14 @@
   <script>
     // ---- Configuration ----
     // Paste your Google Maps API key here (between the quotes)
-    const GOOGLE_MAPS_API_KEY = "AIzaSyBcT6pNNgyGNtGbVxut_VDdt0lbvaFEDs8";
+    const GOOGLE_MAPS_API_KEY = "AIzaSyAH4-WoDtUcITHoD_-SEKtuh35gaIV2pX8";
 
     // Default location — a golf course. Change to whatever you want.
     const DEFAULT_CENTER = { lat: 53.2167427, lng: -6.1076951 }; // Dublin
     const DEFAULT_ZOOM = 19;
-
-    // ---- Configuration ----
-    // Paste your Google Maps API key here (between the quotes)
-    const GOOGLE_MAPS_API_KEY = "AIzaSyBcT6pNNgyGNtGbVxut_VDdt0lbvaFEDs8;
-
-    // Default location — a golf course. Change to whatever you want.
-    const DEFAULT_CENTER = { lat: 53.3498, lng: -6.2603 }; // Dublin
-    const DEFAULT_ZOOM = 19;
-
-    // Editing behaviour
+   // Editing behaviour
     const MIN_VERTEX_DISTANCE = 15;  // pixels in image space
-    
-    // ---- State ----
+
     // ---- State ----
     let map;
     let seedOverlay = null;
@@ -433,7 +423,6 @@
           zIndex: 1000,
         });
 
-        ", (event) => {
         marker.addListener("drag", (event) => {
           const newPixel = latLngToPixel(event.latLng);
           const n = editablePolygon.length;

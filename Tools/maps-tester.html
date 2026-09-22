@@ -60,6 +60,17 @@
     const DEFAULT_CENTER = { lat: 53.2167427, lng: -6.1076951 }; // Dublin
     const DEFAULT_ZOOM = 19;
 
+    // ---- Configuration ----
+    // Paste your Google Maps API key here (between the quotes)
+    const GOOGLE_MAPS_API_KEY = "AIzaSyBcT6pNNgyGNtGbVxut_VDdt0lbvaFEDs8;
+
+    // Default location — a golf course. Change to whatever you want.
+    const DEFAULT_CENTER = { lat: 53.3498, lng: -6.2603 }; // Dublin
+    const DEFAULT_ZOOM = 19;
+
+    // Editing behaviour
+    const MIN_VERTEX_DISTANCE = 15;  // pixels in image space
+    
     // ---- State ----
     // ---- State ----
     let map;
@@ -422,8 +433,20 @@
           zIndex: 1000,
         });
 
+        ", (event) => {
         marker.addListener("drag", (event) => {
           const newPixel = latLngToPixel(event.latLng);
+          const n = editablePolygon.length;
+          const prev = editablePolygon[(index - 1 + n) % n];
+          const next = editablePolygon[(index + 1) % n];
+
+          const tooClosePrev =
+            Math.hypot(newPixel.x - prev.x, newPixel.y - prev.y) < MIN_VERTEX_DISTANCE;
+          const tooCloseNext =
+            Math.hypot(newPixel.x - next.x, newPixel.y - next.y) < MIN_VERTEX_DISTANCE;
+
+          if (tooClosePrev || tooCloseNext) return;
+
           editablePolygon[index] = newPixel;
           const updatedLatLngs = editablePolygon.map(pixelToLatLng);
           polygonOverlay.setPaths(updatedLatLngs);
@@ -443,18 +466,17 @@
     }
 
      // Double-click a segment to insert a vertex
+    // Double-click a segment to insert a vertex
     function attachPolygonDblClick() {
       google.maps.event.clearListeners(polygonOverlay, "dblclick");
       let lastInsertTime = 0;
       polygonOverlay.addListener("dblclick", (event) => {
-        // Debounce: ignore if a dblclick fired within the last 300ms
         const now = Date.now();
         if (now - lastInsertTime < 300) return;
         lastInsertTime = now;
 
         const clickedPixel = latLngToPixel(event.latLng);
 
-        // Find the segment whose midpoint is closest to the click
         let bestIdx = 0;
         let bestDist = Infinity;
         const n = editablePolygon.length;
@@ -467,7 +489,11 @@
           if (d < bestDist) { bestDist = d; bestIdx = i; }
         }
 
-        // Insert at the click position, not the midpoint
+        // Reject if too close to any existing vertex
+        for (const p of editablePolygon) {
+          if (Math.hypot(clickedPixel.x - p.x, clickedPixel.y - p.y) < MIN_VERTEX_DISTANCE) return;
+        }
+
         editablePolygon.splice(bestIdx + 1, 0, clickedPixel);
         redrawEditable();
       });

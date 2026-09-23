@@ -41,6 +41,7 @@ const fakeCv: OpenCvRuntime = {
 
     findContours(): void {},
 
+    CV_8U: 0,
     RETR_EXTERNAL: 0,
     CHAIN_APPROX_SIMPLE: 2,
 

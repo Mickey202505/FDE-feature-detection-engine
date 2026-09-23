@@ -153,6 +153,7 @@ describe("OpenCvJsAdapter", () => {
                 _method
             ) => undefined,
 
+            CV_8U: 0,
             RETR_EXTERNAL: 0,
             CHAIN_APPROX_SIMPLE: 2,
 
@@ -241,18 +242,17 @@ function createRuntime(
             delete() {}
         },
 
-        findContours: options.onFindContours ?? (
-            (
-                _image,
-                _contours,
-                _hierarchy,
-                _mode,
-                _method
-            ) => undefined
-        ),
+        findContours: (
+            _image,
+            _contours,
+            _hierarchy,
+            _mode,
+            _method
+        ) => undefined,
 
-        RETR_EXTERNAL: 0,
-        CHAIN_APPROX_SIMPLE: 2,
+            CV_8U: 0,
+            RETR_EXTERNAL: 0,
+            CHAIN_APPROX_SIMPLE: 2,
 
         Size: class {
             public constructor(

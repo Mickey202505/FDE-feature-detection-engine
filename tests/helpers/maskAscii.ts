@@ -1,6 +1,5 @@
 import type { OpenCvMat } from "../../src/application/opencv/OpenCvTypes";
-import type { PixelPoint } from "../../src/core/geometry/SeedAwarePolygonCleaner";
-
+import type { PixelPoint } from "../../src/api/PixelPoint";
 export function maskToAscii(
   mask: OpenCvMat,
   outputCols: number = 80,

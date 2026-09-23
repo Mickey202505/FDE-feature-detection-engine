@@ -24,6 +24,33 @@ export class OpenCvJsAdapter {
 
     this.validateImage(normalizedImage);
 
+        if (seed) {
+      const boundaryPoints = this.detectGreenBoundary(
+        normalizedImage,
+        seed,
+      );
+
+      const detectedContour: OpenCvContour = {
+        points: boundaryPoints,
+      };
+
+      return {
+        size: () => 1,
+        get: () => {
+          throw new Error(
+            "Use the detected contour directly, not get().",
+          );
+        },
+        delete: () => {
+          // Nothing to release.
+        },
+        // Custom property used by GolfGreenDetector to read the polygon
+        contours: [detectedContour],
+      } as OpenCvContourCollection & {
+        readonly contours: readonly OpenCvContour[];
+      };
+    }
+
     const mask = this.createBinaryImage(
       normalizedImage,
       seed,
@@ -931,7 +958,7 @@ export class OpenCvJsAdapter {
     return this.subsampleToCount(points, targetCount);
   }
 
-    private subsampleToCount(
+  private subsampleToCount(
     points: readonly PixelPoint[],
     targetCount: number,
   ): PixelPoint[] {
@@ -968,6 +995,95 @@ export class OpenCvJsAdapter {
     }
 
     return result;
+  }
+
+  public resampleBySpacingForDiagnostics(
+    points: readonly PixelPoint[],
+    targetSpacing: number,
+  ): PixelPoint[] {
+    return this.resampleBySpacing(points, targetSpacing);
+  }
+
+  private resampleBySpacing(
+    points: readonly PixelPoint[],
+    targetSpacing: number,
+    minVertices: number = 12,
+    maxVertices: number = 80,
+  ): PixelPoint[] {
+    const n = points.length;
+
+    if (n < 3) {
+      return [...points];
+    }
+
+    const lengths: number[] = [];
+    let total = 0;
+
+    for (let i = 0; i < n; i += 1) {
+      const a = points[i];
+      const b = points[(i + 1) % n];
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      lengths.push(len);
+      total += len;
+    }
+
+    const computed = Math.round(total / targetSpacing);
+    const target = Math.max(
+      minVertices,
+      Math.min(maxVertices, computed),
+    );
+    const spacing = total / target;
+
+    const result: PixelPoint[] = [points[0]];
+    let segIdx = 0;
+    let segStart = 0;
+
+    for (let k = 1; k < target; k += 1) {
+      const targetDist = k * spacing;
+
+      while (
+        segIdx < n &&
+        segStart + lengths[segIdx] < targetDist
+      ) {
+        segStart += lengths[segIdx];
+        segIdx += 1;
+      }
+
+      if (segIdx >= n) {
+        break;
+      }
+
+      const a = points[segIdx];
+      const b = points[(segIdx + 1) % n];
+      const segLen = lengths[segIdx] || 1;
+      const t = (targetDist - segStart) / segLen;
+
+      result.push({
+        x: a.x + (b.x - a.x) * t,
+        y: a.y + (b.y - a.y) * t,
+      });
+    }
+
+    return result;
+  }
+
+  private detectGreenBoundary(
+    image: OpenCvImageData,
+    seed: PixelPoint,
+  ): PixelPoint[] {
+    const mask = this.createSeedGuidedRegionMask(image, seed);
+
+    try {
+      const raw = this.extractBoundaryByRays(mask, seed);
+      const smoothed = this.smoothBoundary(raw);
+      const segmented = this.segmentBoundary(smoothed);
+
+      return this.resampleBySpacing(segmented, 25, 12, 80);
+    } finally {
+      if (typeof mask.delete === "function") {
+        mask.delete();
+      }
+    }
   }
 
   private createEmptyMask(

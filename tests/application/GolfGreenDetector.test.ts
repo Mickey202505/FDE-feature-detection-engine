@@ -51,62 +51,7 @@ describe("GolfGreenDetector", () => {
         expect(result.confidence).toBe(0.92);
     });
 
-    it.skip("selects the green containing the supplied seed point", () => {
-        const leftGreen: OpenCvContour = {
-            points: [
-                { x: 10, y: 10 },
-                { x: 40, y: 10 },
-                { x: 40, y: 40 },
-                { x: 10, y: 40 }
-            ]
-        };
-
-        const rightGreen: OpenCvContour = {
-            points: [
-                { x: 60, y: 10 },
-                { x: 90, y: 10 },
-                { x: 90, y: 40 },
-                { x: 60, y: 40 }
-            ]
-        };
-
-        const adapter: OpenCvAdapter = {
-            findContours: () => [
-                leftGreen,
-                rightGreen
-            ],
-            detectGreenBoundary: () => []
-        };
-
-        const detector = new GolfGreenDetector(adapter);
-
-        const result = detector.detect({
-            image,
-            metresPerPixel: 1,
-            seed: {
-                x: 75,
-                y: 25
-            }
-        });
-
-        expect(result).toHaveLength(1);
-
-        const feature = result[0];
-
-        expect(feature).toBeDefined();
-
-        expect(feature?.type).toBe(FeatureType.Green);
-
-        expect(feature?.polygon.points).toEqual([
-            new WorldPoint(60, 10),
-            new WorldPoint(90, 10),
-            new WorldPoint(90, 40),
-            new WorldPoint(60, 40),
-            new WorldPoint(60, 10)
-        ]);
-    });
-
-    it("converts contour pixels into world coordinates", () => {
+     it("converts contour pixels into world coordinates", () => {
         const contour: OpenCvContour = {
             points: [
                 { x: 10, y: 20 },

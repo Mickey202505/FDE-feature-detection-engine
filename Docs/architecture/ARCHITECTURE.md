@@ -161,6 +161,41 @@ This supports processing all five bunkers efficiently.
 
     The browser tester as a reference implementation
 
+
+## Green Detection Pipeline
+
+The green detector is a specialised pipeline that converts a user's seed click into a closed polygon suitable for editing and export.
+
+Seed click (image-space pixel)
+   |
+   v
+Two-Tolerance Flood Fill
+   |   seedTolerance = 40, localTolerance = 16
+   v
+Binary Mask
+   |
+   v
+Ray-Cast Boundary
+   |   100 rays from seed
+   v
+Raw Boundary Points (100)
+   |
+   v
+Smoothing (moving average, window 3)
+   |
+   v
+Segmentation (angle-based, 20° tolerance)
+   |
+   v
+Uniform Arc-Length Resample
+   |   targetSpacing = 25 px
+   |   minVertices = 12, maxVertices = 80
+   v
+World-Space Polygon
+   |   Web Mercator coordinates
+   v
+Editable Feature Geometry
+
 Note:
 These are the working in maps-testing.hyml
 SEED_TOLERANCE = 40

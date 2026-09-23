@@ -68,9 +68,7 @@
     let polygonOverlay = null;
     let lastPolygon = null;
     let vertexMarkers = [];
-    let pathPolyline = null;
     let editablePolygon = null;   // current editable pixel coords
-    let dragState = null;
     let lastSeed = null;
 
     // ---- Map init ----
@@ -336,12 +334,12 @@
         }
       }
 
-      // 5. Subsample to uniform arc-length spacing.
-      // The vertex count scales with the polygon's perimeter,
-      // so small greens get fewer points and large greens get more.
-      const TARGET_SPACING = 40;   // pixels between vertices
-      const MIN_VERTICES = 12;     // minimum, for very small greens
-      const MAX_VERTICES = 60;     // cap, to avoid huge counts on big greens
+            // 5. Resample to evenly-spaced vertices along the polygon's
+      // perimeter. Every adjacent pair (including last -> first)
+      // ends up exactly `spacing` apart.
+      const TARGET_SPACING = 35;
+      const MIN_VERTICES = 12;
+      const MAX_VERTICES = 80;
 
       const n = segmented.length;
       const lengths = [];
@@ -356,36 +354,54 @@
 
       const computedTarget = Math.round(total / TARGET_SPACING);
       const TARGET = Math.max(MIN_VERTICES, Math.min(MAX_VERTICES, computedTarget));
-
-      if (n <= TARGET) return segmented;
       const spacing = total / TARGET;
+
+      // Walk the polygon and pick a point at each exact multiple
+      // of `spacing` along the total perimeter.
       const result = [segmented[0]];
-      let acc = 0, next = spacing;
-      for (let i = 0; i < n; i++) {
-        acc += lengths[i];
-        while (acc >= next && result.length < TARGET) {
-          result.push(segmented[(i + 1) % n]);
-          next += spacing;
+      let travelled = 0;
+      let segIdx = 0;
+      let segStart = 0;     // distance from polygon start to start of current segment
+
+      for (let k = 1; k < TARGET; k++) {
+        const targetDist = k * spacing;
+
+        // Advance to the segment containing targetDist
+        while (segIdx < n && segStart + lengths[segIdx] < targetDist) {
+          segStart += lengths[segIdx];
+          segIdx += 1;
         }
+
+        if (segIdx >= n) break;
+
+        const a = segmented[segIdx];
+        const b = segmented[(segIdx + 1) % n];
+        const segLen = lengths[segIdx] || 1;
+        const t = (targetDist - segStart) / segLen;
+
+        result.push({
+          x: a.x + (b.x - a.x) * t,
+          y: a.y + (b.y - a.y) * t,
+        });
       }
+
       return result;
     }
 
      // ---- Drawing ----
-    function drawPolygon(points) {
+       function drawPolygon(points) {
       clearEditable();
-      editablePolygon = points.map((p) => ({ x: p.x, y: p.y }));
+      editablePolygon = points.map(pixelToWorld);
       redrawEditable();
     }
 
     function clearEditable() {
-      if (pathPolyline) { pathPolyline.setMap(null); pathPolyline = null; }
       if (polygonOverlay) { polygonOverlay.setMap(null); polygonOverlay = null; }
       for (const m of vertexMarkers) m.setMap(null);
       vertexMarkers = [];
       editablePolygon = null;
-      dragState = null;
     }
+
     // Convert canvas pixel (image space) to LatLng for map display
     function pixelToLatLng(p) {
       const topRight = map.getProjection()
@@ -453,8 +469,7 @@
         fillOpacity: 0.15,
         map: map,
       });
-
-            polygonOverlay.setPaths(latLngs);
+      polygonOverlay.setPaths(latLngs);
 
       // Vertex markers (draggable)
       for (const m of vertexMarkers) m.setMap(null);
@@ -462,7 +477,7 @@
 
       editablePolygon.forEach((point, index) => {
         const marker = new google.maps.Marker({
-          position: pixelToLatLng(point),
+          position: worldToLatLng(point),
           map: map,
           draggable: true,
           icon: {
@@ -477,20 +492,24 @@
         });
 
         marker.addListener("drag", (event) => {
-          const newPixel = latLngToPixel(event.latLng);
+          const newWorld = latLngToWorld(event.latLng);
           const n = editablePolygon.length;
           const prev = editablePolygon[(index - 1 + n) % n];
           const next = editablePolygon[(index + 1) % n];
 
+          const newPixel = worldToPixel(newWorld);
+          const prevPixel = worldToPixel(prev);
+          const nextPixel = worldToPixel(next);
+
           const tooClosePrev =
-            Math.hypot(newPixel.x - prev.x, newPixel.y - prev.y) < MIN_VERTEX_DISTANCE;
+            Math.hypot(newPixel.x - prevPixel.x, newPixel.y - prevPixel.y) < MIN_VERTEX_DISTANCE;
           const tooCloseNext =
-            Math.hypot(newPixel.x - next.x, newPixel.y - next.y) < MIN_VERTEX_DISTANCE;
+            Math.hypot(newPixel.x - nextPixel.x, newPixel.y - nextPixel.y) < MIN_VERTEX_DISTANCE;
 
           if (tooClosePrev || tooCloseNext) return;
 
-          editablePolygon[index] = newPixel;
-          const updatedLatLngs = editablePolygon.map(pixelToLatLng);
+          editablePolygon[index] = newWorld;
+          const updatedLatLngs = editablePolygon.map(worldToLatLng);
           polygonOverlay.setPaths(updatedLatLngs);
         });
 
@@ -508,52 +527,48 @@
     }
 
     // Double-click a segment to insert a vertex
-    function attachPolygonDblClick() {
+      function attachPolygonDblClick() {
       google.maps.event.clearListeners(polygonOverlay, "dblclick");
       let lastInsertTime = 0;
       polygonOverlay.addListener("dblclick", (event) => {
-        console.log("[dblclick] fired at", event.latLng.toJSON());
+        console.log("[dblclick] fired");
         const now = Date.now();
-        if (now - lastInsertTime < 300) {
-          console.log("[dblclick] debounced");
-          return;
-        }
+        if (now - lastInsertTime < 300) return;
         lastInsertTime = now;
 
-        const clickedPixel = latLngToPixel(event.latLng);
+        const clickedWorld = latLngToWorld(event.latLng);
+        const clickedPixel = worldToPixel(clickedWorld);
 
         let bestIdx = 0;
         let bestDist = Infinity;
         const n = editablePolygon.length;
         for (let i = 0; i < n; i++) {
-          const a = editablePolygon[i];
-          const b = editablePolygon[(i + 1) % n];
+          const a = worldToPixel(editablePolygon[i]);
+          const b = worldToPixel(editablePolygon[(i + 1) % n]);
           const midX = (a.x + b.x) / 2;
           const midY = (a.y + b.y) / 2;
           const d = Math.hypot(clickedPixel.x - midX, clickedPixel.y - midY);
           if (d < bestDist) { bestDist = d; bestIdx = i; }
         }
 
-             // Reject if too close to any existing vertex
         for (const p of editablePolygon) {
-          if (Math.hypot(clickedPixel.x - p.x, clickedPixel.y - p.y) < MIN_VERTEX_DISTANCE) {
-            console.log("[dblclick] rejected: too close to existing vertex");
+          const pp = worldToPixel(p);
+          if (Math.hypot(clickedPixel.x - pp.x, clickedPixel.y - pp.y) < MIN_VERTEX_DISTANCE) {
+            console.log("[dblclick] rejected: too close");
             return;
           }
         }
 
-        editablePolygon.splice(bestIdx + 1, 0, clickedPixel);
+        editablePolygon.splice(bestIdx + 1, 0, clickedWorld);
         console.log("[dblclick] inserted at index", bestIdx + 1);
         redrawEditable();
       });
     }
 
     // ---- Reset ----
-    document.getElementById("resetBtn").addEventListener("click", () => {
-      if (polygonOverlay) polygonOverlay.setMap(null);
-      if (seedOverlay) seedOverlay.setMap(null);
-      polygonOverlay = null;
-      seedOverlay = null;
+      document.getElementById("resetBtn").addEventListener("click", () => {
+      clearEditable();
+      if (seedOverlay) { seedOverlay.setMap(null); seedOverlay = null; }
       document.getElementById("resetBtn").disabled = true;
       document.getElementById("coords").textContent = "Seed: —";
       document.getElementById("status").textContent = "Waiting for seed click...";

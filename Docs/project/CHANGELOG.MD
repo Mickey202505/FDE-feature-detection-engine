@@ -51,3 +51,18 @@
 ## Historical Note
 
 The previous contents of this file referenced the unrelated `prelude-ls` project. That history has been superseded for this repository. The FDE project change log above is now the authoritative project history.
+
+
+## Maps-Tester.html
+Thes are the work data points:
+SEED_TOLERANCE = 40
+
+LOCAL_TOLERANCE = 16
+
+TARGET_SPACING = 25
+
+MIN_VERTICES = 12
+
+MAX_VERTICES = 80
+
+MIN_VERTEX_DISTANCE = 15

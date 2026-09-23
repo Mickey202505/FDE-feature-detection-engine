@@ -147,6 +147,20 @@ This supports processing all five bunkers efficiently.
 
 ### Green
 
+Note:
+These are the working in maps-testing.hyml
+SEED_TOLERANCE = 40
+
+LOCAL_TOLERANCE = 16
+
+TARGET_SPACING = 25
+
+MIN_VERTICES = 12
+
+MAX_VERTICES = 80
+
+MIN_VERTEX_DISTANCE = 15
+
 1. User selects `Green`.
 2. User clicks approximately near the centre of the green.
 3. The engine uses that click as the seed/location.

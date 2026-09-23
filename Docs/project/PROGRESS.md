@@ -138,3 +138,20 @@ The click is a seed, not a requirement for pixel-perfect positioning.
 ## Long-Term Goal
 
 A deterministic, reusable golf-course feature detection engine producing clean editable geometry for greens, fringes, tee boxes, bunkers, fairways, and future feature types.
+
+### Milestone 4 — User-Testing for green deterction
+Status: 🟡 Completed
+User testing on maps-tester.html completed configuration data points below.
+
+
+SEED_TOLERANCE = 40
+
+LOCAL_TOLERANCE = 16
+
+TARGET_SPACING = 25
+
+MIN_VERTICES = 12
+
+MAX_VERTICES = 80
+
+MIN_VERTEX_DISTANCE = 15

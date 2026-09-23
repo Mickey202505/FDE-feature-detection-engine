@@ -28,7 +28,29 @@ Completed:
 - No browser console errors observed.
 
 ### Milestone 3 — User-Guided Feature Detection
-Status: 🟡 Next
+Status: 🟢 Green detection complete (bunker detection next)
+
+Goal:
+Allow the user to select a feature type and click approximately near its centre so detection is seeded by the user's selection.
+
+Completed for Green:
+- Two-tolerance flood fill from the seed (SEED_TOLERANCE = 40, LOCAL_TOLERANCE = 16).
+- Ray-cast boundary extraction (100 rays).
+- Smoothing (moving average, window 3).
+- Angle-based segmentation (bridges excursions with straight lines).
+- Uniform arc-length resampling (TARGET_SPACING = 25 px).
+- Adaptive vertex count (MIN_VERTICES = 12, MAX_VERTICES = 80).
+- World-space coordinate output (Web Mercator) for direct SVG use.
+- Browser maps tester validates the full workflow against live Google Maps imagery.
+- Editing UX complete: drag, insert (double-click), delete (right-click), reset.
+
+Typical result: auto-detection traces ~65% of the green edge; the user finishes the remaining boundary in the editor.
+
+Remaining for Milestone 3:
+- Port the pipeline into the production adapter (`OpenCvJsAdapter`) as the default Green detector.
+- Package the detection pipeline as a library for the meshery app.
+- Implement user-guided Bunker detection using the same pipeline.
+- Allow repeated bunker clicks after one Bunker selection.
 
 Goal:
 Allow the user to select a feature type and click approximately near its centre so detection is seeded by the user's selection.
@@ -138,6 +160,16 @@ The click is a seed, not a requirement for pixel-perfect positioning.
 ## Long-Term Goal
 
 A deterministic, reusable golf-course feature detection engine producing clean editable geometry for greens, fringes, tee boxes, bunkers, fairways, and future feature types.
+
+Detection pipeline working on real Google Maps imagery
+
+Two-tolerance flood fill (SEED_TOLERANCE 40, LOCAL_TOLERANCE 16)
+
+Adaptive vertex count by perimeter
+
+Editing UX validated (drag, insert, delete)
+
+~65% auto-coverage typical; user finishes the rest
 
 ### Milestone 4 — User-Testing for green deterction
 Status: 🟡 Completed

@@ -147,6 +147,20 @@ This supports processing all five bunkers efficiently.
 
 ### Green
 
+"Green Detection Pipeline" section that matches the existing style (ASCII diagram + responsibilities). It documents:
+
+    Input (aerial imagery + seed)
+
+    Two-tolerance flood fill
+
+    Ray-cast boundary
+
+    Smooth → segment → uniform resample
+
+    Output in world coordinates (Web Mercator)
+
+    The browser tester as a reference implementation
+
 Note:
 These are the working in maps-testing.hyml
 SEED_TOLERANCE = 40

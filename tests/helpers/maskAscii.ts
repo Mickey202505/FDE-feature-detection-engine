@@ -18,7 +18,7 @@ export function maskToAscii(
       const safeX = Math.min(x, mask.cols - 1);
       const safeY = Math.min(y, mask.rows - 1);
 
-      const value = mask.ucharPtr(safeY, safeX)[0];
+const value = mask.ucharPtr!(safeY, safeX)[0];
       line += value !== 0 ? "#" : ".";
     }
 

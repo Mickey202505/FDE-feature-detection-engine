@@ -269,7 +269,7 @@ export class OpenCvJsAdapter {
           x += 1
         ) {
           const value =
-            primaryMask.ucharPtr(y, x)[0];
+            primaryMask.ucharPtr!(y, x)[0];
 
           if (value !== 0) {
             this.writeMaskPixel(
@@ -801,7 +801,7 @@ export class OpenCvJsAdapter {
           break;
         }
 
-        const value = mask.ucharPtr(y, x)[0];
+        const value = mask.ucharPtr!(y, x)[0];
 
         if (value === 0) {
           break;
@@ -1184,7 +1184,7 @@ export class OpenCvJsAdapter {
       if (x < 0 || x >= cols || y < 0 || y >= rows) return;
       const idx = y * cols + x;
       if (visited[idx] !== 0) return;
-      if (mask.ucharPtr(y, x)[0] !== 0) return;
+      if (mask.ucharPtr!(y, x)[0] !== 0) return;
       visited[idx] = 1;
       queueX.push(x);
       queueY.push(y);
@@ -1214,9 +1214,9 @@ export class OpenCvJsAdapter {
         const idx = y * cols + x;
         if (
           visited[idx] === 0 &&
-          mask.ucharPtr(y, x)[0] === 0
+          mask.ucharPtr!(y, x)[0] === 0
         ) {
-          mask.ucharPtr(y, x)[0] = 255;
+          mask.ucharPtr!(y, x)[0] = 255;
         }
       }
     }

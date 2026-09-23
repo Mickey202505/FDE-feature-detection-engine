@@ -2,7 +2,7 @@ import { maskToAscii, maskToRayAscii } from "../helpers/maskAscii";
 import { readFileSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { PNG } from "pngjs";
-
+import type { OpenCvMat } from "../../src/application/opencv/OpenCvTypes";
 import type {
     OpenCvImageData,
 } from "../../src/application/opencv/OpenCvTypes";
@@ -99,7 +99,7 @@ function writeMaskImage(
     for (let y = 0; y < mask.rows; y += 1) {
         for (let x = 0; x < mask.cols; x += 1) {
             const value =
-                mask.ucharPtr(y, x)[0];
+                mask.ucharPtr!(y, x)[0];
 
             const offset =
                 (y * mask.cols + x) * 4;
@@ -583,12 +583,6 @@ describe("OpenCvJs green detection", () => {
         } finally {
             mask.delete();
         }
-
-        const contours =
-            adapter.findContours(
-                image,
-                seed,
-            );
 
         // ... rest of the test ...
     } finally {

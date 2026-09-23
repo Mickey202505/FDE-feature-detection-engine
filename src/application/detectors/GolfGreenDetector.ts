@@ -17,33 +17,31 @@ export class GolfGreenDetector implements FeatureDetector {
         this.openCv = openCv;
     }
 
-    public detect(
+     public detect(
         request: DetectionRequest
     ): readonly Feature[] {
-        const contours = this.openCv.findContours(request.image, request.seed);
-
         if (request.seed !== undefined) {
-            const selectedContour = contours.find(
-                (contour) =>
-                    contour.points.length >= 3 &&
-                    GolfGreenDetector.containsPoint(
-                        contour,
-                        request.seed!.x,
-                        request.seed!.y
-                    )
+            const boundaryPoints = this.openCv.detectGreenBoundary(
+                request.image,
+                request.seed,
             );
 
-            if (selectedContour === undefined) {
+            if (boundaryPoints.length < 3) {
                 return [];
             }
 
-            return [
-                this.fromContour(
-                    selectedContour,
-                    request.metresPerPixel
-                )
-            ];
+            const worldPoints = boundaryPoints.map(
+                (point) =>
+                    new WorldPoint(
+                        point.x * request.metresPerPixel,
+                        point.y * request.metresPerPixel,
+                    ),
+            );
+
+            return [GolfGreenDetector.fromPoints(worldPoints, 0.5)];
         }
+
+        const contours = this.openCv.findContours(request.image);
 
         const features: Feature[] = [];
 
@@ -100,48 +98,7 @@ export class GolfGreenDetector implements FeatureDetector {
         );
     }
 
-    private static containsPoint(
-        contour: OpenCvContour,
-        x: number,
-        y: number
-    ): boolean {
-        const points = contour.points;
-
-        if (points.length < 3) {
-            return false;
-        }
-
-        let inside = false;
-
-        for (
-            let i = 0, j = points.length - 1;
-            i < points.length;
-            j = i++
-        ) {
-            const current = points[i];
-            const previous = points[j];
-
-            if (current === undefined || previous === undefined) {
-                continue;
-            }
-
-            const intersects =
-                current.y > y !== previous.y > y &&
-                x <
-                    ((previous.x - current.x) *
-                        (y - current.y)) /
-                        (previous.y - current.y) +
-                        current.x;
-
-            if (intersects) {
-                inside = !inside;
-            }
-        }
-
-        return inside;
-    }
-
-    public static fromPoints(
+       public static fromPoints(
         points: readonly WorldPoint[],
         confidence: number
     ): Feature {

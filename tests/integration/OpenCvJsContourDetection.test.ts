@@ -594,7 +594,7 @@ describe("OpenCvJs green detection", () => {
     } finally {
         image.delete();
     }
-}, 30_000);
+    }, 30000);
 
     it("produces a similar real-green boundary from another interior seed", () => {
         const adapter = new OpenCvJsAdapter(openCvRuntime);

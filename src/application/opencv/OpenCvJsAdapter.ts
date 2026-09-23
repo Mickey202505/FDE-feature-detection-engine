@@ -1,13 +1,11 @@
 import type {
   OpenCvContour,
-  OpenCvContourCollection,
   OpenCvImageData,
   OpenCvMat,
-  OpenCvPoint,
   OpenCvRuntime,
 } from "./OpenCvTypes";
 
-import type { PixelPoint } from "../../core/geometry/SeedAwarePolygonCleaner";
+import type { PixelPoint } from "../../api/PixelPoint";
 
 export class OpenCvJsAdapter {
   private readonly cv: OpenCvRuntime;
@@ -19,37 +17,10 @@ export class OpenCvJsAdapter {
   findContours(
     image: OpenCvImageData | OpenCvMat,
     seed?: PixelPoint,
-  ): OpenCvContourCollection {
+  ): readonly OpenCvContour[] {
     const normalizedImage = this.normalizeImage(image);
 
     this.validateImage(normalizedImage);
-
-        if (seed) {
-      const boundaryPoints = this.detectGreenBoundary(
-        normalizedImage,
-        seed,
-      );
-
-      const detectedContour: OpenCvContour = {
-        points: boundaryPoints,
-      };
-
-      return {
-        size: () => 1,
-        get: () => {
-          throw new Error(
-            "Use the detected contour directly, not get().",
-          );
-        },
-        delete: () => {
-          // Nothing to release.
-        },
-        // Custom property used by GolfGreenDetector to read the polygon
-        contours: [detectedContour],
-      } as OpenCvContourCollection & {
-        readonly contours: readonly OpenCvContour[];
-      };
-    }
 
     const mask = this.createBinaryImage(
       normalizedImage,
@@ -1067,7 +1038,7 @@ export class OpenCvJsAdapter {
     return result;
   }
 
-  private detectGreenBoundary(
+  public detectGreenBoundary(
     image: OpenCvImageData,
     seed: PixelPoint,
   ): PixelPoint[] {

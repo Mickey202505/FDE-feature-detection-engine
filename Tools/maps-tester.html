@@ -336,10 +336,14 @@
         }
       }
 
-      // 5. Subsample to 40 vertices, arc-length based
-      const TARGET = 40;
+      // 5. Subsample to uniform arc-length spacing.
+      // The vertex count scales with the polygon's perimeter,
+      // so small greens get fewer points and large greens get more.
+      const TARGET_SPACING = 40;   // pixels between vertices
+      const MIN_VERTICES = 12;     // minimum, for very small greens
+      const MAX_VERTICES = 60;     // cap, to avoid huge counts on big greens
+
       const n = segmented.length;
-      if (n <= TARGET) return segmented;
       const lengths = [];
       let total = 0;
       for (let i = 0; i < n; i++) {
@@ -349,6 +353,11 @@
         lengths.push(len);
         total += len;
       }
+
+      const computedTarget = Math.round(total / TARGET_SPACING);
+      const TARGET = Math.max(MIN_VERTICES, Math.min(MAX_VERTICES, computedTarget));
+
+      if (n <= TARGET) return segmented;
       const spacing = total / TARGET;
       const result = [segmented[0]];
       let acc = 0, next = spacing;
@@ -377,7 +386,6 @@
       editablePolygon = null;
       dragState = null;
     }
-
     // Convert canvas pixel (image space) to LatLng for map display
     function pixelToLatLng(p) {
       const topRight = map.getProjection()
@@ -406,11 +414,34 @@
       };
     }
 
+    // World-space helpers.
+    // World coordinates are the raw Web Mercator projection point
+    // (not scaled by zoom). They stay stable across zoom and pan,
+    // and are what the meshery app uses directly for SVG.
+    function latLngToWorld(latLng) {
+      return map.getProjection().fromLatLngToPoint(latLng);
+    }
+
+    function worldToLatLng(world) {
+      return map.getProjection().fromPointToLatLng(world);
+    }
+
+    function pixelToWorld(pixel) {
+      return latLngToWorld(pixelToLatLng(pixel));
+    }
+
+    function worldToPixel(world) {
+      return latLngToPixel(worldToLatLng(world));
+    }
+
+    function getPolygonWorld() {
+      return editablePolygon ? editablePolygon.slice() : [];
+    }
+
     function redrawEditable() {
       if (!editablePolygon || editablePolygon.length < 3) return;
 
-      const latLngs = editablePolygon.map(pixelToLatLng);
-
+      const latLngs = editablePolygon.map(worldToLatLng);
       // Fill polygon
       if (polygonOverlay) polygonOverlay.setMap(null);
       polygonOverlay = new google.maps.Polygon({
@@ -422,6 +453,8 @@
         fillOpacity: 0.15,
         map: map,
       });
+
+            polygonOverlay.setPaths(latLngs);
 
       // Vertex markers (draggable)
       for (const m of vertexMarkers) m.setMap(null);

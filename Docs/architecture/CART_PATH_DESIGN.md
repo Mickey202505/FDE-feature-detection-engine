@@ -84,3 +84,36 @@ bunkers, with two differences:
             data-width-meters="2.4"
             points="1100.5,5500.3 1130.2,5520.1 1165.7,5545.8 ..." />
 </g>
+
+## 17. Multi-Point Tracing
+
+### Default: two-point tracing
+The user clicks start and end. A* traces the route. For
+most cart paths this produces the correct route in one
+step.
+
+### Editing: intermediate waypoints
+If the traced route is wrong (goes the wrong way around a
+loop, or through an unintended area), the user can
+double-click any segment of the polyline to insert a
+waypoint. The path then re-traces as two segments:
+  - start → new waypoint
+  - new waypoint → end
+
+Inserting another waypoint splits again. So a path can
+be A → M → N → B, traced as three segments.
+
+### Why not multi-point from the start?
+Most cart paths are simple and don't need it. Forcing the
+user to click multiple points slows the common case.
+Insertion after the fact is faster when the default works,
+and only slightly slower when it doesn't.
+
+### API
+The core tracing function takes two points:
+  traceSegment(image, from, to) → PixelPoint[]
+
+A full path is a list of segments. Inserting a waypoint
+splits a segment into two.
+
+s

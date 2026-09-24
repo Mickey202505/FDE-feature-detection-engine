@@ -1084,26 +1084,46 @@ export class OpenCvJsAdapter {
     return result;
   }
 
-  private offsetPolygonFromSeed(
+
+  private offsetPolygonAdaptive(
     points: readonly PixelPoint[],
     seed: PixelPoint,
-    distance: number,
+    baseOffset: number,
   ): PixelPoint[] {
+    if (points.length === 0) {
+      return [];
+    }
+
+    const radii = points.map((p) =>
+      Math.hypot(p.x - seed.x, p.y - seed.y),
+    );
+
+    const sorted = [...radii].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+
+    if (median === 0) {
+      return [...points];
+    }
+
     const result: PixelPoint[] = [];
 
-    for (const p of points) {
+    for (let i = 0; i < points.length; i += 1) {
+      const p = points[i];
+      const r = radii[i];
+
       const dx = p.x - seed.x;
       const dy = p.y - seed.y;
-      const len = Math.hypot(dx, dy);
+      const len = r || 1;
 
-      if (len === 0) {
-        result.push({ x: p.x, y: p.y });
-        continue;
-      }
+      // Only push vertices that stopped short of the
+      // median radius. Vertices already at or beyond the
+      // median get just the base offset — no leakage.
+      const shortfall = Math.max(0, median / r - 1);
+      const localOffset = baseOffset * (1 + shortfall);
 
       result.push({
-        x: p.x + (dx / len) * distance,
-        y: p.y + (dy / len) * distance,
+        x: p.x + (dx / len) * localOffset,
+        y: p.y + (dy / len) * localOffset,
       });
     }
 
@@ -1143,12 +1163,11 @@ export class OpenCvJsAdapter {
       const raw = this.extractBoundaryByRays(mask, seed);
       const smoothed = this.smoothBoundary(raw);
       const segmented = this.segmentBoundary(smoothed);
-      const offset = this.offsetPolygonFromSeed(
+      const offset = this.offsetPolygonAdaptive(
         segmented,
         seed,
         3,
       );
-
       return this.resampleBySpacing(offset, 25, 12, 80);
     } finally {
       if (typeof mask.delete === "function") {

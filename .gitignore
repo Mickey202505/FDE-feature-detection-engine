@@ -27,3 +27,4 @@ export const openCvRuntime: OpenCvRuntime =
 node_modules/
 .vscode/
 .vite/
+tests/fixtures/view-bunker-*.png

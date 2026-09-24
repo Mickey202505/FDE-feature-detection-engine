@@ -7,6 +7,46 @@ import type {
 
 import type { PixelPoint } from "../../api/PixelPoint";
 
+interface FeatureMaskOptions {
+  isFeaturePixel: (colour: {
+    r: number;
+    g: number;
+    b: number;
+  }) => boolean;
+  localTolerance: number;
+  seedTolerance: number;
+  gradualTransitionSeedTolerance: number;
+  gradualTransitionLocalTolerance: number;
+  minimumCloseAcceptedNeighbours: number;
+  maximumAcceptedNeighbourColourSpread: number;
+}
+export const GREEN_MASK_OPTIONS: FeatureMaskOptions = {
+  isFeaturePixel: (colour) =>
+    colour.g >= 50 &&
+    colour.g - Math.max(colour.r, colour.b) >= 10,
+  localTolerance: 16,
+  seedTolerance: 40,
+  gradualTransitionSeedTolerance: 25,
+  gradualTransitionLocalTolerance: 12,
+  minimumCloseAcceptedNeighbours: 4,
+  maximumAcceptedNeighbourColourSpread: 12,
+};
+
+export const BUNKER_MASK_OPTIONS: FeatureMaskOptions = {
+  isFeaturePixel: (colour) =>
+    colour.r >= 180 &&
+    colour.g >= 170 &&
+    colour.b >= 140 &&
+    colour.r >= colour.b,
+  localTolerance: 25,
+  seedTolerance: 60,
+  gradualTransitionSeedTolerance: 40,
+  gradualTransitionLocalTolerance: 20,
+  minimumCloseAcceptedNeighbours: 4,
+  maximumAcceptedNeighbourColourSpread: 20,
+};
+
+
 export class OpenCvJsAdapter {
   private readonly cv: OpenCvRuntime;
 
@@ -174,6 +214,7 @@ export class OpenCvJsAdapter {
   private createSeedGuidedRegionMask(
     image: OpenCvImageData,
     seed: PixelPoint,
+    options: FeatureMaskOptions = GREEN_MASK_OPTIONS,
   ): OpenCvMat {
     /**
      * The supplied seed is the user's primary evidence.
@@ -223,7 +264,7 @@ export class OpenCvJsAdapter {
           y,
         );
 
-        if (!this.isGreenPixel(colour)) {
+        if (!options.isFeaturePixel(colour)) {
           continue;
         }
 
@@ -234,6 +275,7 @@ export class OpenCvJsAdapter {
               x,
               y,
             },
+            options,
           ),
         );
       }
@@ -329,6 +371,7 @@ export class OpenCvJsAdapter {
   private createSingleSeedGuidedRegionMask(
     image: OpenCvImageData,
     seed: PixelPoint,
+    options: FeatureMaskOptions = GREEN_MASK_OPTIONS,
   ): OpenCvMat {
     const mask = new this.cv.Mat(
       image.height,
@@ -356,7 +399,7 @@ export class OpenCvJsAdapter {
       seedY,
     );
 
-    if (!this.isGreenPixel(seedColour)) {
+   if (!options.isFeaturePixel(seedColour)) {
       return mask;
     }
 
@@ -380,15 +423,18 @@ export class OpenCvJsAdapter {
      * far a candidate pixel may differ from
      * the already accepted neighbourhood.
      */
-    const localTolerance = 16;
-    const seedTolerance = 40;
-    const gradualTransitionSeedTolerance = 25;
-    const gradualTransitionLocalTolerance = 12;
-    const minimumCloseAcceptedNeighbours = 4;
+    const localTolerance = options.localTolerance;
+    const seedTolerance = options.seedTolerance;
+    const gradualTransitionSeedTolerance =
+      options.gradualTransitionSeedTolerance;
+    const gradualTransitionLocalTolerance =
+      options.gradualTransitionLocalTolerance;
+    const minimumCloseAcceptedNeighbours =
+      options.minimumCloseAcceptedNeighbours;
     const relaxedCloseNeighbourSeedDistance =
       seedTolerance + 5;
-    const maximumAcceptedNeighbourColourSpread = 12;
-
+    const maximumAcceptedNeighbourColourSpread =
+      options.maximumAcceptedNeighbourColourSpread;
     /**
      * ---------------------------------------------------------
      * DIAGNOSTICS ONLY
@@ -508,7 +554,7 @@ export class OpenCvJsAdapter {
           );
 
         if (
-          !this.isGreenPixel(
+          !options.isFeaturePixel(
             candidateColour,
           )
         ) {

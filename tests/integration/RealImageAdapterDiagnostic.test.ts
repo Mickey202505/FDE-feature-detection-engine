@@ -11,7 +11,8 @@ import type {
 describe("GolfGreenDetector", () => {
     const emptyAdapter: OpenCvAdapter = {
             findContours: () => [],
-            detectGreenBoundary: () => []
+            detectGreenBoundary: () => [],
+                detectBunkerBoundary: () => []
     };
 
     const image: OpenCvMat = {
@@ -63,7 +64,8 @@ describe("GolfGreenDetector", () => {
 
         const adapter: OpenCvAdapter = {
             findContours: () => [contour],
-            detectGreenBoundary: () => []
+            detectGreenBoundary: () => [],
+                detectBunkerBoundary: () => []
         };
 
         const detector = new GolfGreenDetector(adapter);
@@ -99,7 +101,8 @@ describe("GolfGreenDetector", () => {
 
         const adapter: OpenCvAdapter = {
             findContours: () => [contour],
-            detectGreenBoundary: () => []
+            detectGreenBoundary: () => [],
+                detectBunkerBoundary: () => []
         };
 
         const detector = new GolfGreenDetector(adapter);

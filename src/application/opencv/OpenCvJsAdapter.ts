@@ -1084,11 +1084,34 @@ export class OpenCvJsAdapter {
     return result;
   }
 
-  public detectGreenBoundary(
+    public detectBunkerBoundary(
+        image: OpenCvImageData,
+        seed: PixelPoint,
+    ): PixelPoint[] {
+      const mask = this.createSeedGuidedRegionMask(
+        image,
+        seed,
+        BUNKER_MASK_OPTIONS,
+      );
+
+      try {
+        const raw = this.extractBoundaryByRays(mask, seed);
+        const smoothed = this.smoothBoundary(raw);
+        const segmented = this.segmentBoundary(smoothed);
+
+        return this.resampleBySpacing(segmented, 25, 12, 80);
+      } finally {
+        if (typeof mask.delete === "function") {
+          mask.delete();
+        }
+      }
+    }
+
+      public detectGreenBoundary(
     image: OpenCvImageData,
     seed: PixelPoint,
   ): PixelPoint[] {
-    const mask = this.createSeedGuidedRegionMask(image, seed);
+        const mask = this.createSeedGuidedRegionMask(image, seed);
 
     try {
       const raw = this.extractBoundaryByRays(mask, seed);

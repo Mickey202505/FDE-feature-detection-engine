@@ -11,7 +11,8 @@ import type {
 describe("GolfGreenDetector", () => {
     const emptyAdapter: OpenCvAdapter = {
         findContours: () => [],
-        detectGreenBoundary: () => []
+        detectGreenBoundary: () => [],
+        detectBunkerBoundary: () => []
     };
 
     const image: OpenCvMat = {
@@ -29,7 +30,7 @@ describe("GolfGreenDetector", () => {
     it("returns no features when there are no contours", () => {
         const detector = new GolfGreenDetector(emptyAdapter);
 
-       const result = detector.detect({
+        const result = detector.detect({
             featureType: FeatureType.Green,
             image,
             metresPerPixel: 0.1
@@ -52,7 +53,7 @@ describe("GolfGreenDetector", () => {
         expect(result.confidence).toBe(0.92);
     });
 
-     it("converts contour pixels into world coordinates", () => {
+    it("converts contour pixels into world coordinates", () => {
         const contour: OpenCvContour = {
             points: [
                 { x: 10, y: 20 },
@@ -62,8 +63,9 @@ describe("GolfGreenDetector", () => {
         };
 
         const adapter: OpenCvAdapter = {
-          findContours: () => [contour],
-          detectGreenBoundary: () => []
+            findContours: () => [contour],
+            detectGreenBoundary: () => [],
+            detectBunkerBoundary: () => []
         };
 
         const detector = new GolfGreenDetector(adapter);
@@ -99,7 +101,8 @@ describe("GolfGreenDetector", () => {
 
         const adapter: OpenCvAdapter = {
             findContours: () => [contour],
-            detectGreenBoundary: () => []
+            detectGreenBoundary: () => [],
+            detectBunkerBoundary: () => []
         };
 
         const detector = new GolfGreenDetector(adapter);

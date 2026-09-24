@@ -16,4 +16,9 @@ export interface OpenCvAdapter {
         image: OpenCvImageData | OpenCvMat,
         seed: PixelPoint
     ): readonly PixelPoint[];
+
+    detectBunkerBoundary(
+        image: OpenCvImageData | OpenCvMat,
+        seed: PixelPoint
+    ): readonly PixelPoint[];
 }

@@ -1143,7 +1143,8 @@ export class OpenCvJsAdapter {
       const raw = this.extractBoundaryByRays(mask, seed);
       const smoothed = this.smoothBoundary(raw);
       const segmented = this.segmentBoundary(smoothed);
-      const offset = this.offsetPolygonFromSeed(        segmented,
+      const offset = this.offsetPolygonFromSeed(
+        segmented,
         seed,
         3,
       );

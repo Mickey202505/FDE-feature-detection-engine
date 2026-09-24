@@ -34,9 +34,9 @@ export const GREEN_MASK_OPTIONS: FeatureMaskOptions = {
 
 export const BUNKER_MASK_OPTIONS: FeatureMaskOptions = {
   isFeaturePixel: (colour) =>
-    colour.r >= 180 &&
-    colour.g >= 170 &&
-    colour.b >= 140 &&
+    colour.r >= 140 &&
+    colour.g >= 130 &&
+    colour.b >= 100 &&
     colour.r >= colour.b,
   localTolerance: 25,
   seedTolerance: 60,
@@ -1084,34 +1084,37 @@ export class OpenCvJsAdapter {
     return result;
   }
 
-    public detectBunkerBoundary(
-        image: OpenCvImageData,
-        seed: PixelPoint,
-    ): PixelPoint[] {
-      const mask = this.createSeedGuidedRegionMask(
-        image,
-        seed,
-        BUNKER_MASK_OPTIONS,
-      );
+  private offsetPolygonFromSeed(
+    points: readonly PixelPoint[],
+    seed: PixelPoint,
+    distance: number,
+  ): PixelPoint[] {
+    const result: PixelPoint[] = [];
 
-      try {
-        const raw = this.extractBoundaryByRays(mask, seed);
-        const smoothed = this.smoothBoundary(raw);
-        const segmented = this.segmentBoundary(smoothed);
+    for (const p of points) {
+      const dx = p.x - seed.x;
+      const dy = p.y - seed.y;
+      const len = Math.hypot(dx, dy);
 
-        return this.resampleBySpacing(segmented, 25, 12, 80);
-      } finally {
-        if (typeof mask.delete === "function") {
-          mask.delete();
-        }
+      if (len === 0) {
+        result.push({ x: p.x, y: p.y });
+        continue;
       }
+
+      result.push({
+        x: p.x + (dx / len) * distance,
+        y: p.y + (dy / len) * distance,
+      });
     }
 
-      public detectGreenBoundary(
+    return result;
+  }
+
+  public detectGreenBoundary(
     image: OpenCvImageData,
     seed: PixelPoint,
   ): PixelPoint[] {
-        const mask = this.createSeedGuidedRegionMask(image, seed);
+    const mask = this.createSeedGuidedRegionMask(image, seed);
 
     try {
       const raw = this.extractBoundaryByRays(mask, seed);
@@ -1119,6 +1122,33 @@ export class OpenCvJsAdapter {
       const segmented = this.segmentBoundary(smoothed);
 
       return this.resampleBySpacing(segmented, 25, 12, 80);
+    } finally {
+      if (typeof mask.delete === "function") {
+        mask.delete();
+      }
+    }
+  }
+
+  public detectBunkerBoundary(
+    image: OpenCvImageData,
+    seed: PixelPoint,
+  ): PixelPoint[] {
+    const mask = this.createSeedGuidedRegionMask(
+      image,
+      seed,
+      BUNKER_MASK_OPTIONS,
+    );
+
+    try {
+      const raw = this.extractBoundaryByRays(mask, seed);
+      const smoothed = this.smoothBoundary(raw);
+      const segmented = this.segmentBoundary(smoothed);
+      const offset = this.offsetPolygonFromSeed(        segmented,
+        seed,
+        3,
+      );
+
+      return this.resampleBySpacing(offset, 25, 12, 80);
     } finally {
       if (typeof mask.delete === "function") {
         mask.delete();

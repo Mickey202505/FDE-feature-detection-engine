@@ -6,6 +6,7 @@ import { FeatureType } from "../../src/domain/FeatureType";
 describe("DetectionPipeline", () => {
     it("runs all detectors", () => {
         const detector: FeatureDetector = {
+            featureType: FeatureType.Green,
             detect: () => []
         };
 

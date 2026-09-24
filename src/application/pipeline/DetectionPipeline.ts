@@ -17,6 +17,10 @@ export class DetectionPipeline {
         const features: Feature[] = [];
 
         for (const detector of this.detectors) {
+            if (detector.featureType !== request.featureType) {
+                continue;
+            }
+
             features.push(...detector.detect(request));
         }
 

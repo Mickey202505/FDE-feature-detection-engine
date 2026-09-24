@@ -11,6 +11,7 @@ import type {
 } from "../opencv/OpenCvTypes";
 
 export class GolfGreenDetector implements FeatureDetector {
+    public readonly featureType = FeatureType.Green;
     private readonly openCv: OpenCvAdapter;
 
     public constructor(openCv: OpenCvAdapter) {

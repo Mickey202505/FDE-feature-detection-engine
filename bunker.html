@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Golf Green Outliner – Smooth Polygons</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #1a2a1f;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        h1 {
+            color: #b8d9b0;
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+        .sub {
+            color: #8aaa82;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+        .container {
+            background: #2a3d2a;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+            max-width: 1200px;
+            width: 100%;
+        }
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+            align-items: center;
+        }
+        .toolbar input[type="file"] {
+            display: none;
+        }
+        .toolbar label,
+        .toolbar button {
+            background: #3d5a3d;
+            color: #e8f5e0;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .toolbar label:hover,
+        .toolbar button:hover {
+            background: #4f704f;
+            transform: scale(1.02);
+        }
+        .toolbar .status {
+            color: #c8e0c0;
+            font-size: 14px;
+            padding: 6px 14px;
+            background: #1f331f;
+            border-radius: 20px;
+            margin-left: auto;
+            white-space: nowrap;
+        }
+        .controls {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            background: #1f331f;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            align-items: center;
+        }
+        .controls label {
+            color: #b8d9b0;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .controls input[type="range"] {
+            width: 100px;
+            accent-color: #4f704f;
+        }
+        .controls .value {
+            color: #d4f0cc;
+            font-size: 13px;
+            min-width: 30px;
+        }
+        .controls .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .controls input[type="checkbox"] {
+            accent-color: #4f704f;
+            width: 16px;
+            height: 16px;
+        }
+        .geo-inputs {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            background: #1f331f;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            align-items: center;
+        }
+        .geo-inputs label {
+            color: #b8d9b0;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .geo-inputs input {
+            background: #2a3d2a;
+            border: 1px solid #3d5a3d;
+            color: #e8f5e0;
+            padding: 6px 10px;
+            border-radius: 6px;
+            width: 120px;
+            font-size: 13px;
+        }
+        .geo-inputs input:focus {
+            outline: 2px solid #4f704f;
+        }
+        .main-layout {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .map-wrapper {
+            flex: 2;
+            min-width: 500px;
+            background: #1a2a1a;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #3d5a3d;
+            position: relative;
+        }
+        #mapCanvas {
+            width: 100%;
+            height: auto;
+            display: block;
+            cursor: crosshair;
+        }
+        .output-panel {
+            flex: 1;
+            min-width: 300px;
+            background: #1f331f;
+            border-radius: 12px;
+            padding: 16px;
+            border: 2px solid #3d5a3d;
+            max-height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+        .output-panel h3 {
+            color: #b8d9b0;
+            font-weight: 300;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        .output-panel .coord-count {
+            color: #8aaa82;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+        .output-panel textarea {
+            flex: 1;
+            background: #0f1f0f;
+            color: #d4f0cc;
+            border: 1px solid #3d5a3d;
+            border-radius: 8px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            resize: vertical;
+            min-height: 200px;
+            width: 100%;
+            line-height: 1.5;
+        }
+        .output-panel textarea:focus {
+            outline: 2px solid #4f704f;
+        }
+        .output-panel .actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        .output-panel .actions button {
+            background: #3d5a3d;
+            color: #e8f5e0;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            flex: 1;
+        }
+        .output-panel .actions button:hover {
+            background: #4f704f;
+        }
+        .instructions {
+            color: #9ab892;
+            font-size: 13px;
+            margin-top: 12px;
+            text-align: center;
+            background: #1f331f;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .instructions strong {
+            color: #d4f0cc;
+        }
+        #loadingOverlay {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            font-size: 20px;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 12px;
+            border-radius: 12px;
+            backdrop-filter: blur(4px);
+            z-index: 10;
+        }
+        #loadingOverlay .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #4f704f;
+            border-top-color: #b8d9b0;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        .copy-feedback {
+            color: #b8d9b0;
+            font-size: 12px;
+            margin-left: 8px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .copy-feedback.show {
+            opacity: 1;
+        }
+        .comparison {
+            display: flex;
+            gap: 20px;
+            margin-top: 12px;
+            padding: 12px;
+            background: #1f331f;
+            border-radius: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .comparison .stat {
+            color: #b8d9b0;
+            font-size: 13px;
+        }
+        .comparison .stat span {
+            color: #d4f0cc;
+            font-weight: bold;
+        }
+        @media (max-width: 800px) {
+            .map-wrapper {
+                min-width: 100%;
+            }
+            .output-panel {
+                min-width: 100%;
+            }
+            .geo-inputs input {
+                width: 80px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>⛳ Green Outliner – Smooth Polygons</h1>
+    <div class="sub">Click the green → smooth, organic outline</div>
+
+    <div class="container">
+        <!-- Georeferencing inputs -->
+        <div class="geo-inputs">
+            <label>🌐 Image Center:</label>
+            <input type="number" id="centerLat" step="0.000001" placeholder="Latitude" value="37.2345" />
+            <input type="number" id="centerLng" step="0.000001" placeholder="Longitude" value="-122.1234" />
+            <label>🔍 Zoom:</label>
+            <input type="number" id="zoomLevel" step="1" min="1" max="22" value="19" style="width:60px;" />
+        </div>
+
+        <!-- Smoothing controls -->
+        <div class="controls">
+            <div class="checkbox-group">
+                <input type="checkbox" id="enableSmoothing" checked />
+                <label for="enableSmoothing">Enable Smoothing</label>
+            </div>
+            <label>Simplify:</label>
+            <input type="range" id="simplifyEpsilon" min="0.5" max="5" step="0.5" value="2.0" />
+            <span class="value" id="simplifyValue">2.0</span>
+            <label>Spline:</label>
+            <input type="range" id="splineSegments" min="4" max="16" step="2" value="8" />
+            <span class="value" id="splineValue">8</span>
+            <div class="checkbox-group">
+                <input type="checkbox" id="enableAngleFilter" checked />
+                <label for="enableAngleFilter">Angle Filter</label>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <label for="imageUpload">📂 Load Satellite Image</label>
+            <input type="file" id="imageUpload" accept="image/*" />
+            <button id="resetBtn">↺ Reset</button>
+            <span class="status" id="statusText">Ready</span>
+        </div>
+
+        <div class="main-layout">
+            <div class="map-wrapper">
+                <canvas id="mapCanvas"></canvas>
+                <div id="loadingOverlay">
+                    <div class="spinner"></div>
+                    <span>Running SAM…</span>
+                </div>
+            </div>
+
+            <div class="output-panel">
+                <h3>📐 Polygon (Lat/Lng)</h3>
+                <div class="coord-count" id="coordCount">0 vertices</div>
+                <textarea id="outputText" readonly></textarea>
+                <div class="actions">
+                    <button id="copyBtn">📋 Copy</button>
+                    <button id="downloadBtn">💾 Download GeoJSON</button>
+                    <span class="copy-feedback" id="copyFeedback">✅ Copied!</span>
+                </div>
+                <div class="comparison">
+                    <div class="stat">Raw: <span id="rawCount">0</span> vertices</div>
+                    <div class="stat">Final: <span id="finalCount">0</span> vertices</div>
+                    <div class="stat">Reduction: <span id="reductionPercent">0%</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <strong>1.</strong> Enter center Lat/Lng &amp; Zoom &nbsp;|&nbsp;
+            <strong>2.</strong> Load satellite image &nbsp;|&nbsp;
+            <strong>3.</strong> Click <strong>inside</strong> the green → smooth polygon
+        </div>
+    </div>
+
+    <!-- SAM2 via CDN -->
+    <script type="importmap">
+        {
+            "imports": {
+                "@xenova/transformers": "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import { pipeline } from '@xenova/transformers';
+
+        // ---------- DOM refs ----------
+        const canvas = document.getElementById('mapCanvas');
+        const ctx = canvas.getContext('2d');
+        const fileInput = document.getElementById('imageUpload');
+        const resetBtn = document.getElementById('resetBtn');
+        const statusEl = document.getElementById('statusText');
+        const overlay = document.getElementById('loadingOverlay');
+        const outputText = document.getElementById('outputText');
+        const coordCount = document.getElementById('coordCount');
+        const copyBtn = document.getElementById('copyBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const copyFeedback = document.getElementById('copyFeedback');
+
+        const centerLatInput = document.getElementById('centerLat');
+        const centerLngInput = document.getElementById('centerLng');
+        const zoomInput = document.getElementById('zoomLevel');
+
+        const enableSmoothing = document.getElementById('enableSmoothing');
+        const simplifyEpsilon = document.getElementById('simplifyEpsilon');
+        const simplifyValue = document.getElementById('simplifyValue');
+        const splineSegments = document.getElementById('splineSegments');
+        const splineValue = document.getElementById('splineValue');
+        const enableAngleFilter = document.getElementById('enableAngleFilter');
+
+        const rawCount = document.getElementById('rawCount');
+        const finalCount = document.getElementById('finalCount');
+        const reductionPercent = document.getElementById('reductionPercent');
+
+        let img = null;
+        let samSegmenter = null;
+        let currentPolygonPixels = null;
+        let currentPolygonWorld = null;
+
+        // ---------- Range slider display ----------
+        simplifyEpsilon.addEventListener('input', () => {
+            simplifyValue.textContent = parseFloat(simplifyEpsilon.value).toFixed(1);
+        });
+        splineSegments.addEventListener('input', () => {
+            splineValue.textContent = splineSegments.value;
+        });
+
+        // ---------- Init SAM ----------
+        async function initSAM() {
+            statusEl.textContent = 'Loading SAM…';
+            try {
+                samSegmenter = await pipeline('image-segmentation', 'Xenova/sam2-small', {
+                    quantized: true,
+                    progress_callback: (p) => {
+                        if (p.status === 'progress') {
+                            statusEl.textContent = `Loading SAM ${Math.round(p.progress * 100)}%`;
+                        }
+                    }
+                });
+                statusEl.textContent = 'SAM ready – load an image';
+                return true;
+            } catch (e) {
+                console.error(e);
+                statusEl.textContent = '❌ SAM load failed – see console';
+                return false;
+            }
+        }
+
+        // ---------- Load image ----------
+        function loadImage(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const url = e.target.result;
+                const image = new Image();
+                image.onload = () => {
+                    img = image;
+                    canvas.width = image.width;
+                    canvas.height = image.height;
+                    canvas.style.width = '100%';
+                    canvas.style.height = 'auto';
+                    drawImage();
+                    statusEl.textContent = 'Image loaded – click the green';
+                    currentPolygonPixels = null;
+                    currentPolygonWorld = null;
+                    outputText.value = '';
+                    coordCount.textContent = '0 vertices';
+                    rawCount.textContent = '0';
+                    finalCount.textContent = '0';
+                    reductionPercent.textContent = '0%';
+                };
+                image.src = url;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ---------- Draw image + overlay ----------
+        function drawImage(polygonPoints = null, rawPoints = null) {
+            if (!img) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+
+            if (polygonPoints && polygonPoints.length > 2) {
+                // Draw raw points (gray, dashed)
+                if (rawPoints && rawPoints.length > 2) {
+                    ctx.beginPath();
+                    ctx.moveTo(rawPoints[0][0], rawPoints[0][1]);
+                    for (let i = 1; i < rawPoints.length; i++) {
+                        ctx.lineTo(rawPoints[i][0], rawPoints[i][1]);
+                    }
+                    ctx.closePath();
+                    ctx.strokeStyle = 'rgba(200,200,200,0.3)';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([3, 3]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                // Draw smoothed polygon
+                ctx.beginPath();
+                ctx.moveTo(polygonPoints[0][0], polygonPoints[0][1]);
+                for (let i = 1; i < polygonPoints.length; i++) {
+                    ctx.lineTo(polygonPoints[i][0], polygonPoints[i][1]);
+                }
+                ctx.closePath();
+                ctx.strokeStyle = '#00ff88';
+                ctx.lineWidth = 4;
+                ctx.shadowColor = 'rgba(0,255,136,0.5)';
+                ctx.shadowBlur = 12;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = 'rgba(0, 255, 136, 0.12)';
+                ctx.fill();
+
+                // Vertex dots
+                for (const p of polygonPoints) {
+                    ctx.beginPath();
+                    ctx.arc(p[0], p[1], 4, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#00ff88';
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = '#00ff88';
+                    ctx.fill();
+                }
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        // ---------- Smoothing functions ----------
+
+        // 1. Douglas-Peucker simplification
+        function simplifyPolygon(points, epsilon) {
+            if (points.length < 3) return points;
+            let maxDist = 0;
+            let idx = 0;
+            const first = points[0];
+            const last = points[points.length - 1];
+            for (let i = 1; i < points.length - 1; i++) {
+                const d = perpendicularDistance(points[i], first, last);
+                if (d > maxDist) { maxDist = d;
+                    idx = i; }
+            }
+            if (maxDist > epsilon) {
+                const left = simplifyPolygon(points.slice(0, idx + 1), epsilon);
+                const right = simplifyPolygon(points.slice(idx), epsilon);
+                return left.slice(0, -1).concat(right);
+            } else {
+                return [first, last];
+            }
+        }
+
+        function perpendicularDistance(p, a, b) {
+            const dx = b[0] - a[0],
+                dy = b[1] - a[1];
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len === 0) return Math.sqrt((p[0] - a[0]) ** 2 + (p[1] - a[1]) ** 2);
+            return Math.abs((p[0] - a[0]) * dy - (p[1] - a[1]) * dx) / len;
+        }
+
+        // 2. Angle filter (remove sharp corners)
+        function removeSharpCorners(points, minAngleDeg = 150) {
+            if (points.length < 4) return points;
+            const minAngle = minAngleDeg * Math.PI / 180;
+            const result = [];
+
+            for (let i = 0; i < points.length; i++) {
+                const prev = points[(i - 1 + points.length) % points.length];
+                const curr = points[i];
+                const next = points[(i + 1) % points.length];
+
+                const v1 = [prev[0] - curr[0], prev[1] - curr[1]];
+                const v2 = [next[0] - curr[0], next[1] - curr[1]];
+
+                const dot = v1[0] * v2[0] + v1[1] * v2[1];
+                const mag1 = Math.sqrt(v1[0] * v1[0] + v1[1] * v1[1]);
+                const mag2 = Math.sqrt(v2[0] * v2[0] + v2[1] * v2[1]);
+
+                if (mag1 === 0 || mag2 === 0) {
+                    result.push(curr);
+                    continue;
+                }
+
+                const angle = Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2))));
+
+                // Keep points where angle is close to 180° (smooth)
+                if (angle >= minAngle) {
+                    result.push(curr);
+                }
+            }
+
+            // Ensure we don't lose too many points
+            if (result.length < 4) return points;
+            return result;
+        }
+
+        // 3. Catmull-Rom spline interpolation
+        function catmullRomToPolygon(points, segments = 8) {
+            if (points.length < 3) return points;
+
+            const result = [];
+            const n = points.length;
+
+            for (let i = 0; i < n; i++) {
+                const p0 = points[(i - 1 + n) % n];
+                const p1 = points[i];
+                const p2 = points[(i + 1) % n];
+                const p3 = points[(i + 2) % n];
+
+                for (let t = 0; t <= 1; t += 1 / segments) {
+                    const t2 = t * t;
+                    const t3 = t2 * t;
+
+                    const x = 0.5 * (
+                        (2 * p1[0]) +
+                        (-p0[0] + p2[0]) * t +
+                        (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
+                        (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3
+                    );
+
+                    const y = 0.5 * (
+                        (2 * p1[1]) +
+                        (-p0[1] + p2[1]) * t +
+                        (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+                        (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3
+                    );
+
+                    // Avoid duplicate first point
+                    if (i === 0 && t === 0) continue;
+                    result.push([x, y]);
+                }
+            }
+
+            return result;
+        }
+
+        // 4. Full smoothing pipeline
+        function smoothPolygon(rawPoly, options) {
+            if (!options.enabled || rawPoly.length < 4) return rawPoly;
+
+            let poly = [...rawPoly];
+
+            // Step 1: Simplify (Douglas-Peucker)
+            poly = simplifyPolygon(poly, options.epsilon);
+
+            // Step 2: Remove sharp corners (if enabled)
+            if (options.angleFilter) {
+                poly = removeSharpCorners(poly, options.minAngle);
+            }
+
+            // Step 3: Spline interpolation
+            poly = catmullRomToPolygon(poly, options.splineSegments);
+
+            // Step 4: Final simplification to remove micro-jaggies
+            poly = simplifyPolygon(poly, options.epsilon * 0.5);
+
+            return poly;
+        }
+
+        // ---------- Pixel to World (Lat/Lng) ----------
+        function pixelToLatLng(x, y, zoom, centerLat, centerLng, imageWidth, imageHeight) {
+            const C = 256 * Math.pow(2, zoom);
+            const siny = Math.sin(centerLat * Math.PI / 180);
+            const centerX = (centerLng + 180) / 360 * C;
+            const centerY = (0.5 - Math.log((1 + siny) / (1 - siny)) / (4 * Math.PI)) * C;
+
+            const pixelX = centerX + (x - imageWidth / 2);
+            const pixelY = centerY + (y - imageHeight / 2);
+
+            const lon = (pixelX / C * 360) - 180;
+            const latRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * pixelY / C)));
+            const lat = latRad * 180 / Math.PI;
+
+            return { lat, lng: lon };
+        }
+
+        function convertPolygonToWorld(pixelPoints, zoom, centerLat, centerLng, imgW, imgH) {
+            return pixelPoints.map(([x, y]) => {
+                const coord = pixelToLatLng(x, y, zoom, centerLat, centerLng, imgW, imgH);
+                return [coord.lat, coord.lng];
+            });
+        }
+
+        // ---------- Mask to Polygon ----------
+        function maskToPolygon(maskImageData, threshold = 0.5) {
+            const w = maskImageData.width;
+            const h = maskImageData.height;
+            const data = maskImageData.data;
+
+            let minX = w,
+                minY = h,
+                maxX = 0,
+                maxY = 0;
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const idx = (y * w + x) * 4;
+                    if (data[idx] > threshold * 255) {
+                        if (x < minX) minX = x;
+                        if (x > maxX) maxX = x;
+                        if (y < minY) minY = y;
+                        if (y > maxY) maxY = y;
+                    }
+                }
+            }
+            if (minX > maxX || minY > maxY) return [];
+
+            const cropW = maxX - minX + 1;
+            const cropH = maxY - minY + 1;
+            const maskBinary = new Uint8Array(cropW * cropH);
+            for (let y = minY; y <= maxY; y++) {
+                for (let x = minX; x <= maxX; x++) {
+                    const idx = (y * w + x) * 4;
+                    const val = data[idx] > threshold * 255 ? 1 : 0;
+                    maskBinary[(y - minY) * cropW + (x - minX)] = val;
+                }
+            }
+
+            const contour = traceContour(maskBinary, cropW, cropH);
+            return contour.map(p => [p[0] + minX, p[1] + minY]);
+        }
+
+        function traceContour(binary, w, h) {
+            let startX = -1,
+                startY = -1;
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    if (binary[y * w + x] === 1 && isEdge(binary, w, h, x, y)) {
+                        startX = x;
+                        startY = y;
+                        break;
+                    }
+                }
+                if (startX >= 0) break;
+            }
+            if (startX < 0) return [];
+
+            const contour = [];
+            let cx = startX,
+                cy = startY;
+            let dir = 0;
+            const dirs = [
+                [1, 0],
+                [1, 1],
+                [0, 1],
+                [-1, 1],
+                [-1, 0],
+                [-1, -1],
+                [0, -1],
+                [1, -1]
+            ];
+
+            do {
+                contour.push([cx, cy]);
+                let found = false;
+                for (let i = 0; i < 8; i++) {
+                    const nd = (dir + i) % 8;
+                    const [dx, dy] = dirs[nd];
+                    const nx = cx + dx,
+                        ny = cy + dy;
+                    if (nx >= 0 && nx < w && ny >= 0 && ny < h &&
+                        binary[ny * w + nx] === 1 &&
+                        isEdge(binary, w, h, nx, ny)) {
+                        cx = nx;
+                        cy = ny;
+                        dir = (nd + 5) % 8;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) break;
+            } while (cx !== startX || cy !== startY);
+
+            return contour;
+        }
+
+        function isEdge(binary, w, h, x, y) {
+            const dirs = [
+                [-1, -1],
+                [-1, 0],
+                [-1, 1],
+                [0, -1],
+                [0, 1],
+                [1, -1],
+                [1, 0],
+                [1, 1]
+            ];
+            for (const [dx, dy] of dirs) {
+                const nx = x + dx,
+                    ny = y + dy;
+                if (nx < 0 || nx >= w || ny < 0 || ny >= h) return true;
+                if (binary[ny * w + nx] === 0) return true;
+            }
+            return false;
+        }
+
+        // ---------- SAM inference ----------
+        async function segmentPoint(x, y) {
+            if (!samSegmenter) {
+                statusEl.textContent = '⏳ SAM not ready yet';
+                return;
+            }
+            if (!img) {
+                statusEl.textContent = '⚠️ Load an image first';
+                return;
+            }
+
+            overlay.style.display = 'flex';
+            statusEl.textContent = '⏳ Running SAM…';
+
+            try {
+                const rx = x / canvas.width;
+                const ry = y / canvas.height;
+
+                const result = await samSegmenter(img, {
+                    points: [
+                        [rx, ry]
+                    ],
+                    labels: [1],
+                    threshold: 0.3,
+                    mask_threshold: 0.5,
+                });
+
+                const maskData = result[0]?.mask;
+                if (!maskData) {
+                    statusEl.textContent = '❌ No mask found – try different spot';
+                    overlay.style.display = 'none';
+                    return;
+                }
+
+                // Raw polygon from mask
+                const rawPoly = maskToPolygon(maskData, 0.4);
+                if (rawPoly.length < 3) {
+                    statusEl.textContent = '❌ Polygon too small – try again';
+                    overlay.style.display = 'none';
+                    return;
+                }
+
+                // Smooth the polygon
+                const options = {
+                    enabled: enableSmoothing.checked,
+                    epsilon: parseFloat(simplifyEpsilon.value),
+                    splineSegments: parseInt(splineSegments.value),
+                    angleFilter: enableAngleFilter.checked,
+                    minAngle: 150 // degrees
+                };
+
+                let smoothedPoly = options.enabled ? smoothPolygon(rawPoly, options) : rawPoly;
+
+                // Ensure polygon is closed
+                if (smoothedPoly.length > 2) {
+                    const first = smoothedPoly[0];
+                    const last = smoothedPoly[smoothedPoly.length - 1];
+                    if (first[0] !== last[0] || first[1] !== last[1]) {
+                        smoothedPoly.push([...first]);
+                    }
+                }
+
+                // Convert to world coordinates
+                const zoom = parseFloat(zoomInput.value) || 19;
+                const centerLat = parseFloat(centerLatInput.value) || 37.2345;
+                const centerLng = parseFloat(centerLngInput.value) || -122.1234;
+
+                const worldPoly = convertPolygonToWorld(
+                    smoothedPoly,
+                    zoom,
+                    centerLat,
+                    centerLng,
+                    canvas.width,
+                    canvas.height
+                );
+
+                currentPolygonPixels = smoothedPoly;
+                currentPolygonWorld = worldPoly;
+
+                // Update stats
+                rawCount.textContent = rawPoly.length;
+                finalCount.textContent = smoothedPoly.length;
+                const reduction = ((1 - smoothedPoly.length / rawPoly.length) * 100);
+                reductionPercent.textContent = reduction.toFixed(1) + '%';
+
+                drawImage(smoothedPoly, rawPoly);
+                updateOutput(worldPoly);
+                statusEl.textContent = `✅ Green outlined (${worldPoly.length} vertices)`;
+            } catch (e) {
+                console.error(e);
+                statusEl.textContent = '❌ SAM error – see console';
+            }
+            overlay.style.display = 'none';
+        }
+
+        // ---------- Update output ----------
+        function updateOutput(worldPoly) {
+            const coordsStr = worldPoly.map(([lat, lng]) =>
+                `  [${lat.toFixed(8)}, ${lng.toFixed(8)}]`
+            ).join(',\n');
+
+            const output = `[\n${coordsStr}\n]`;
+            outputText.value = output;
+            coordCount.textContent = `${worldPoly.length} vertices`;
+        }
+
+        // ---------- Export functions ----------
+        function copyOutput() {
+            if (!outputText.value) return;
+            navigator.clipboard.writeText(outputText.value).then(() => {
+                copyFeedback.classList.add('show');
+                setTimeout(() => copyFeedback.classList.remove('show'), 2000);
+            });
+        }
+
+        function downloadGeoJSON() {
+            if (!currentPolygonWorld || currentPolygonWorld.length < 3) {
+                statusEl.textContent = '⚠️ No polygon to export';
+                return;
+            }
+
+            const geojson = {
+                type: 'FeatureCollection',
+                features: [{
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: [
+                            [...currentPolygonWorld, currentPolygonWorld[0]]
+                        ]
+                    },
+                    properties: {
+                        name: 'Golf Green',
+                        vertices: currentPolygonWorld.length,
+                        smoothed: enableSmoothing.checked
+                    }
+                }]
+            };
+
+            const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/geo+json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `green_${Date.now()}.geojson`;
+            a.click();
+            URL.revokeObjectURL(url);
+            statusEl.textContent = `✅ GeoJSON downloaded (${currentPolygonWorld.length} vertices)`;
+        }
+
+        // ---------- Event handlers ----------
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            segmentPoint(x, y);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) loadImage(e.target.files[0]);
+        });
+
+        resetBtn.addEventListener('click', () => {
+            currentPolygonPixels = null;
+            currentPolygonWorld = null;
+            outputText.value = '';
+            coordCount.textContent = '0 vertices';
+            rawCount.textContent = '0';
+            finalCount.textContent = '0';
+            reductionPercent.textContent = '0%';
+            drawImage();
+            statusEl.textContent = 'Reset – click the green';
+        });
+
+        copyBtn.addEventListener('click', copyOutput);
+        downloadBtn.addEventListener('click', downloadGeoJSON);
+
+        // Drag-and-drop
+        document.addEventListener('dragover', (e) => e.preventDefault());
+        document.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const files = e.dataTransfer.files;
+            if (files.length && files[0].type.startsWith('image/')) {
+                loadImage(files[0]);
+            }
+        });
+
+        // ---------- Startup ----------
+        await initSAM();
+        statusEl.textContent = '📂 Load a satellite image to start';
+
+        console.log('🏌️ Green Outliner with Smoothing ready!');
+    </script>
+</body>
+</html>
+`

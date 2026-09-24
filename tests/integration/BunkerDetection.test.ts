@@ -87,7 +87,7 @@ describe("BunkerDetector", () => {
         const adapter = new OpenCvJsAdapter(openCvRuntime);
         const imageData = loadBunkerImage();
 
-        const seed = { x: 278, y: 404 };
+        const seed = { x: 269, y: 415 };
 
         const points = adapter.detectBunkerBoundary(imageData, seed);
 

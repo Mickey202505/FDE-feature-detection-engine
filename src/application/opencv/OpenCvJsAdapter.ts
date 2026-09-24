@@ -1119,7 +1119,7 @@ export class OpenCvJsAdapter {
       // median radius. Vertices already at or beyond the
       // median get just the base offset — no leakage.
       const shortfall = Math.max(0, median / r - 1);
-      const localOffset = baseOffset * (1 + shortfall);
+      const localOffset = baseOffset * (1 + shortfall * 3);
 
       result.push({
         x: p.x + (dx / len) * localOffset,
@@ -1166,7 +1166,7 @@ export class OpenCvJsAdapter {
       const offset = this.offsetPolygonAdaptive(
         segmented,
         seed,
-        3,
+        4,
       );
       return this.resampleBySpacing(offset, 25, 12, 80);
     } finally {

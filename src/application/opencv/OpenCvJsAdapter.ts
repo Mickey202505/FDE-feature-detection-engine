@@ -1117,8 +1117,8 @@ export class OpenCvJsAdapter {
     );
 
     const kernel = this.cv.getStructuringElement!(
-      this.cv.MORPH_ELLIPSE!,
-      new this.cv.Size!(9, 9),
+      this.cv.MORPH_RECT!,
+      new this.cv.Size!(15, 15),
     );
 
     const dilated = new this.cv.Mat();

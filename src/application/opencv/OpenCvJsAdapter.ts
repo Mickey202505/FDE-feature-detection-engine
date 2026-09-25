@@ -1106,35 +1106,25 @@ export class OpenCvJsAdapter {
     }
   }
 
-   public detectBunkerBoundary(
+  public detectBunkerBoundary(
     image: OpenCvImageData,
     seed: PixelPoint,
   ): PixelPoint[] {
-      const mask = this.createSeedGuidedRegionMask(
+    const mask = this.createSeedGuidedRegionMask(
       image,
       seed,
       BUNKER_MASK_OPTIONS,
     );
 
-    const kernel = this.cv.getStructuringElement!(
-      this.cv.MORPH_RECT!,
-      new this.cv.Size!(17, 17),
-    );
-
-    const dilated = new this.cv.Mat();
-
-    this.cv.dilate!(mask, dilated, kernel);
-    kernel.delete!();
-    mask.delete!();
-
     try {
-      const raw = this.extractBoundaryByRays(dilated, seed);
-      const segmented = this.segmentBoundary(raw);
+      const raw = this.extractBoundaryByRays(mask, seed);
+      const smoothed = this.smoothBoundary(raw);
+      const segmented = this.segmentBoundary(smoothed);
 
       return this.resampleBySpacing(segmented, 25, 12, 80);
     } finally {
-      if (typeof dilated.delete === "function") {
-        dilated.delete();
+      if (typeof mask.delete === "function") {
+        mask.delete();
       }
     }
   }

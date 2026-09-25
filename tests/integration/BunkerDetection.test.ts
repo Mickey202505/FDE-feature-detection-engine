@@ -141,8 +141,6 @@ describe("BunkerDetector", () => {
             "tests/fixtures/bunker-mask.png",
         );
 
-        rawMask.delete();
-
         const points = adapter.detectBunkerBoundary(imageData, seed);
 
         console.log("[Polygon]", points);
@@ -168,8 +166,20 @@ describe("BunkerDetector", () => {
                 points,
                 "tests/fixtures/bunker-detected.png"
             );
-        }
 
+            const maskBoundary =
+            adapter.extractBoundaryByRaysForDiagnostics(
+                rawMask,
+                seed,
+            );
+
+            writeOverlay(
+                imageData,
+                maskBoundary,
+                "tests/fixtures/bunker-mask-boundary.png"
+            );
+        }
+            rawMask.delete();
         expect(points.length).toBeGreaterThanOrEqual(3);
     }, 30000);
 });

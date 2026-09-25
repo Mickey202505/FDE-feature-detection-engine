@@ -1085,51 +1085,6 @@ export class OpenCvJsAdapter {
   }
 
 
-  private offsetPolygonAdaptive(
-    points: readonly PixelPoint[],
-    seed: PixelPoint,
-    baseOffset: number,
-  ): PixelPoint[] {
-    if (points.length === 0) {
-      return [];
-    }
-
-    const radii = points.map((p) =>
-      Math.hypot(p.x - seed.x, p.y - seed.y),
-    );
-
-    const sorted = [...radii].sort((a, b) => a - b);
-    const median = sorted[Math.floor(sorted.length / 2)];
-
-    if (median === 0) {
-      return [...points];
-    }
-
-    const result: PixelPoint[] = [];
-
-    for (let i = 0; i < points.length; i += 1) {
-      const p = points[i];
-      const r = radii[i];
-
-      const dx = p.x - seed.x;
-      const dy = p.y - seed.y;
-      const len = r || 1;
-
-      // Only push vertices that stopped short of the
-      // median radius. Vertices already at or beyond the
-      // median get just the base offset — no leakage.
-      const shortfall = Math.max(0, median / r - 1);
-      const localOffset = baseOffset * (1 + shortfall * 3);
-
-      result.push({
-        x: p.x + (dx / len) * localOffset,
-        y: p.y + (dy / len) * localOffset,
-      });
-    }
-
-    return result;
-  }
-
   public detectGreenBoundary(
     image: OpenCvImageData,
     seed: PixelPoint,
@@ -1149,7 +1104,7 @@ export class OpenCvJsAdapter {
     }
   }
 
-  public detectBunkerBoundary(
+   public detectBunkerBoundary(
     image: OpenCvImageData,
     seed: PixelPoint,
   ): PixelPoint[] {
@@ -1161,14 +1116,11 @@ export class OpenCvJsAdapter {
 
     try {
       const raw = this.extractBoundaryByRays(mask, seed);
-      const smoothed = this.smoothBoundary(raw);
+      const extended = this.extendToGrassEdge(raw, seed, image, 30);
+      const smoothed = this.smoothBoundary(extended);
       const segmented = this.segmentBoundary(smoothed);
-      const offset = this.offsetPolygonAdaptive(
-        segmented,
-        seed,
-        4,
-      );
-      return this.resampleBySpacing(offset, 25, 12, 80);
+
+      return this.resampleBySpacing(segmented, 25, 12, 80);
     } finally {
       if (typeof mask.delete === "function") {
         mask.delete();
@@ -1231,6 +1183,78 @@ export class OpenCvJsAdapter {
     }
 
     return mask;
+  }
+
+  private isGrass(colour: {
+    r: number;
+    g: number;
+    b: number;
+  }): boolean {
+    const r = colour.r / 255;
+    const g = colour.g / 255;
+    const b = colour.b / 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const delta = max - min;
+
+    if (max < 0.15) return false;
+    if (delta === 0) return false;
+
+    let h = 0;
+    if (max === r) h = ((g - b) / delta) % 6;
+    else if (max === g) h = (b - r) / delta + 2;
+    else h = (r - g) / delta + 4;
+
+    h *= 60;
+    if (h < 0) h += 360;
+
+    return h >= 58 && h <= 150;
+  }
+
+  private extendToGrassEdge(
+    points: readonly PixelPoint[],
+    seed: PixelPoint,
+    image: OpenCvImageData,
+    maxSteps: number,
+  ): PixelPoint[] {
+    const result: PixelPoint[] = [];
+
+    for (const p of points) {
+      const dx = p.x - seed.x;
+      const dy = p.y - seed.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const ux = dx / len;
+      const uy = dy / len;
+
+      let lastX = Math.round(p.x);
+      let lastY = Math.round(p.y);
+
+      for (let step = 1; step <= maxSteps; step += 1) {
+        const x = Math.round(p.x + ux * step);
+        const y = Math.round(p.y + uy * step);
+
+        if (x < 0 || x >= image.width) break;
+        if (y < 0 || y >= image.height) break;
+
+        const colour = this.readPixel(image, x, y);
+
+        if (this.isGrass(colour)) break;
+
+        lastX = x;
+        lastY = y;
+      }
+
+      console.log("[Walk]", {
+        from: { x: Math.round(p.x), y: Math.round(p.y) },
+        to: { x: lastX, y: lastY },
+        dist: Math.round(Math.hypot(lastX - p.x, lastY - p.y)),
+      });
+
+      result.push({ x: lastX, y: lastY });
+    }
+
+    return result;
   }
 
   private readPixel(

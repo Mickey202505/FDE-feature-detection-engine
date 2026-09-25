@@ -1110,22 +1110,31 @@ export class OpenCvJsAdapter {
     image: OpenCvImageData,
     seed: PixelPoint,
   ): PixelPoint[] {
-    const mask = this.createSeedGuidedRegionMask(
+      const mask = this.createSeedGuidedRegionMask(
       image,
       seed,
       BUNKER_MASK_OPTIONS,
     );
 
+    const kernel = this.cv.getStructuringElement!(
+      this.cv.MORPH_ELLIPSE!,
+      new this.cv.Size!(9, 9),
+    );
+
+    const dilated = new this.cv.Mat();
+
+    this.cv.dilate!(mask, dilated, kernel);
+    kernel.delete!();
+    mask.delete!();
+
     try {
-      const raw = this.extractBoundaryByRays(mask, seed);
-      const extended = this.extendToGrassEdge(raw, seed, image, 30);
-      const smoothed = this.smoothBoundary(extended);
-      const segmented = this.segmentBoundary(smoothed);
+      const raw = this.extractBoundaryByRays(dilated, seed);
+      const segmented = this.segmentBoundary(raw);
 
       return this.resampleBySpacing(segmented, 25, 12, 80);
     } finally {
-      if (typeof mask.delete === "function") {
-        mask.delete();
+      if (typeof dilated.delete === "function") {
+        dilated.delete();
       }
     }
   }

@@ -828,7 +828,7 @@ export class OpenCvJsAdapter {
   private extractBoundaryByRays(
     mask: OpenCvMat,
     seed: PixelPoint,
-    rayCount: number = 100,
+    rayCount: number = 360,
   ): PixelPoint[] {
     const points: PixelPoint[] = [];
     const maxRadius = Math.max(mask.rows, mask.cols);
@@ -838,28 +838,35 @@ export class OpenCvJsAdapter {
       const dx = Math.cos(angle);
       const dy = Math.sin(angle);
 
-      let lastWhiteX = Math.round(seed.x);
-      let lastWhiteY = Math.round(seed.y);
+        let lastWhiteX = Math.round(seed.x);
+        let lastWhiteY = Math.round(seed.y);
+        let consecutiveBlack = 0;
+        const blackRunThreshold = 4;
 
-      for (let r = 1; r < maxRadius; r += 1) {
-        const x = Math.round(seed.x + dx * r);
-        const y = Math.round(seed.y + dy * r);
+        for (let r = 1; r < maxRadius; r += 1) {
+          const x = Math.round(seed.x + dx * r);
+          const y = Math.round(seed.y + dy * r);
 
-        if (x < 0 || x >= mask.cols || y < 0 || y >= mask.rows) {
-          break;
+          if (x < 0 || x >= mask.cols || y < 0 || y >= mask.rows) {
+            break;
+          }
+
+          const value = mask.ucharPtr!(y, x)[0];
+
+          if (value === 0) {
+            consecutiveBlack += 1;
+
+            if (consecutiveBlack >= blackRunThreshold) {
+              break;
+            }
+          } else {
+            consecutiveBlack = 0;
+            lastWhiteX = x;
+            lastWhiteY = y;
+          }
         }
 
-        const value = mask.ucharPtr!(y, x)[0];
-
-        if (value === 0) {
-          break;
-        }
-
-        lastWhiteX = x;
-        lastWhiteY = y;
-      }
-
-      points.push({ x: lastWhiteX, y: lastWhiteY });
+        points.push({ x: lastWhiteX, y: lastWhiteY });
     }
 
     return points;
@@ -1095,10 +1102,8 @@ export class OpenCvJsAdapter {
 
     try {
       const raw = this.extractBoundaryByRays(mask, seed);
-      const smoothed = this.smoothBoundary(raw);
-      const segmented = this.segmentBoundary(smoothed);
 
-      return this.resampleBySpacing(segmented, 25, 12, 80);
+      return this.resampleBySpacing(raw, 14, 3, 1000);
     } finally {
       if (typeof mask.delete === "function") {
         mask.delete();
@@ -1119,7 +1124,7 @@ export class OpenCvJsAdapter {
     try {
       const raw = this.extractBoundaryByRays(mask, seed);
 
-      return raw;
+      return this.resampleBySpacing(raw, 14, 3, 1000);
     } finally {
       if (typeof mask.delete === "function") {
         mask.delete();

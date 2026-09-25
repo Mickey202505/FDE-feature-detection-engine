@@ -46,7 +46,7 @@ function writeMaskImage(
 }
 
 function loadBunkerImage(): OpenCvImageData {
-    const file = readFileSync("tests/fixtures/bunker.png");
+        const file = readFileSync("tests/fixtures/bunker-norim-1.png");
     const png = PNG.sync.read(file);
 
     return {
@@ -120,7 +120,7 @@ function writeOverlay(
     }
 
     // Yellow markers every 4th vertex, small
-    for (let i = 0; i < points.length; i += 4) {
+    for (let i = 0; i < points.length; i += 1) {
         const p = points[i];
         for (let dx = -1; dx <= 1; dx += 1) {
             for (let dy = -1; dy <= 1; dy += 1) {
@@ -145,7 +145,7 @@ describe("BunkerDetector", () => {
         const adapter = new OpenCvJsAdapter(openCvRuntime);
         const imageData = loadBunkerImage();
 
-        const seed = { x: 269, y: 415 };
+        const seed = { x: 620, y: 638 };
 
         const rawMask =
             adapter.createSeedGuidedRegionMaskForDiagnostics(
@@ -160,6 +160,18 @@ describe("BunkerDetector", () => {
         );
 
         const points = adapter.detectBunkerBoundary(imageData, seed);
+                console.log("[Coords]");
+        for (const p of points) {
+            console.log(`${Math.round(p.x)},${Math.round(p.y)}`);
+        }
+        let totalPerim = 0;
+        for (let i = 0; i < points.length; i += 1) {
+            const a = points[i];
+            const b = points[(i + 1) % points.length];
+            totalPerim += Math.hypot(b.x - a.x, b.y - a.y);
+        }
+        console.log("[BunkerTest] polygon perimeter:", Math.round(totalPerim));
+        console.log("[BunkerTest] polygon point count:", points.length);
 
         console.log("[Polygon]", points);
         
@@ -182,7 +194,7 @@ describe("BunkerDetector", () => {
             writeOverlay(
                 imageData,
                 points,
-                "tests/fixtures/bunker-detected.png"
+                "tests/fixtures/bunker-norim-1-detected.png"
             );
 
             const maskBoundary =

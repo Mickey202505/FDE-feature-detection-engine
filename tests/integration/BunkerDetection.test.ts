@@ -1,9 +1,49 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, writeFileSync } from "node:fs";
 import { PNG } from "pngjs";
-import { OpenCvJsAdapter } from "../../src/application/opencv/OpenCvJsAdapter";
+import { OpenCvJsAdapter, BUNKER_MASK_OPTIONS } from "../../src/application/opencv/OpenCvJsAdapter";
 import openCvRuntime from "../../src/infrastructure/opencv/OpenCvJsRuntime";
-import type { OpenCvImageData } from "../../src/application/opencv/OpenCvTypes";
+import type { OpenCvImageData, OpenCvMat } from "../../src/application/opencv/OpenCvTypes";
+
+function writeMaskImage(
+    mask: OpenCvMat,
+    outputPath: string,
+): void {
+    const png = new PNG({
+        width: mask.cols,
+        height: mask.rows,
+    });
+
+    for (let y = 0; y < mask.rows; y += 1) {
+        for (let x = 0; x < mask.cols; x += 1) {
+            const value = mask.ucharPtr!(y, x)[0];
+            const offset = (y * mask.cols + x) * 4;
+
+            png.data[offset] = value;
+            png.data[offset + 1] = value;
+            png.data[offset + 2] = value;
+            png.data[offset + 3] = 255;
+        }
+    }
+
+    writeFileSync(outputPath, PNG.sync.write(png));
+
+    let whiteCount = 0;
+    for (let y = 0; y < mask.rows; y += 1) {
+        for (let x = 0; x < mask.cols; x += 1) {
+            const value = mask.ucharPtr!(y, x)[0];
+            if (value !== 0) whiteCount += 1;
+        }
+    }
+    console.log(
+        "[MaskWrite] white pixels:",
+        whiteCount,
+        "of",
+        mask.rows * mask.cols,
+    );
+
+    writeFileSync(outputPath, PNG.sync.write(png));
+}
 
 function loadBunkerImage(): OpenCvImageData {
     const file = readFileSync("tests/fixtures/bunker.png");
@@ -89,8 +129,24 @@ describe("BunkerDetector", () => {
 
         const seed = { x: 269, y: 415 };
 
+        const rawMask =
+            adapter.createSeedGuidedRegionMaskForDiagnostics(
+                imageData,
+                seed,
+                BUNKER_MASK_OPTIONS,
+            );
+
+        writeMaskImage(
+            rawMask,
+            "tests/fixtures/bunker-mask.png",
+        );
+
+        rawMask.delete();
+
         const points = adapter.detectBunkerBoundary(imageData, seed);
 
+        console.log("[Polygon]", points);
+        
         console.log(
             "[BunkerTest] point count:",
             points.length

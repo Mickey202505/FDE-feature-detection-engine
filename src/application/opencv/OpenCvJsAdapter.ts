@@ -39,7 +39,7 @@ export const BUNKER_MASK_OPTIONS: FeatureMaskOptions = {
     colour.b >= 100 &&
     colour.r >= colour.b,
   localTolerance: 25,
-  seedTolerance: 60,
+  seedTolerance: 120,
   gradualTransitionSeedTolerance: 40,
   gradualTransitionLocalTolerance: 20,
   minimumCloseAcceptedNeighbours: 4,
@@ -204,10 +204,12 @@ export class OpenCvJsAdapter {
   public createSeedGuidedRegionMaskForDiagnostics(
     image: OpenCvImageData,
     seed: PixelPoint,
+    options: FeatureMaskOptions = GREEN_MASK_OPTIONS,
   ): any {
     return this.createSeedGuidedRegionMask(
       image,
       seed,
+      options,
     );
   }
 

@@ -119,6 +119,24 @@ function writeOverlay(
         );
     }
 
+    // Yellow markers every 4th vertex, small
+    for (let i = 0; i < points.length; i += 4) {
+        const p = points[i];
+        for (let dx = -1; dx <= 1; dx += 1) {
+            for (let dy = -1; dy <= 1; dy += 1) {
+                const px = Math.round(p.x) + dx;
+                const py = Math.round(p.y) + dy;
+                if (px < 0 || px >= imageData.width) continue;
+                if (py < 0 || py >= imageData.height) continue;
+                const i2 = (py * imageData.width + px) * 4;
+                png.data[i2] = 255;
+                png.data[i2 + 1] = 255;
+                png.data[i2 + 2] = 0;
+                png.data[i2 + 3] = 255;
+            }
+        }
+    }
+
     writeFileSync(outputPath, PNG.sync.write(png));
 }
 

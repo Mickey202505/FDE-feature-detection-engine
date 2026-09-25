@@ -1106,7 +1106,7 @@ export class OpenCvJsAdapter {
     }
   }
 
-  public detectBunkerBoundary(
+    public detectBunkerBoundary(
     image: OpenCvImageData,
     seed: PixelPoint,
   ): PixelPoint[] {
@@ -1118,10 +1118,8 @@ export class OpenCvJsAdapter {
 
     try {
       const raw = this.extractBoundaryByRays(mask, seed);
-      const smoothed = this.smoothBoundary(raw);
-      const segmented = this.segmentBoundary(smoothed);
 
-      return this.resampleBySpacing(segmented, 25, 12, 80);
+      return raw;
     } finally {
       if (typeof mask.delete === "function") {
         mask.delete();

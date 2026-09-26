@@ -137,24 +137,66 @@ function writeOverlay(
 
     const buffer = PNG.sync.write(png);
 
-    console.log("[WriteOverlay] attempting ->", outputPath);
+    // --- Delete the previous file first. If it is locked, fall back to a
+    // --- timestamped filename so the output is always fresh.
+
+    const fs = require("node:fs");
+    const path = require("node:path");
+
+    const absoluteOutput = path.isAbsolute(outputPath)
+        ? outputPath
+        : path.resolve(process.cwd(), outputPath);
+
+    let finalPath = absoluteOutput;
+    let deletedOldFile = false;
+
+    if (fs.existsSync(finalPath)) {
+        try {
+            fs.unlinkSync(finalPath);
+            deletedOldFile = true;
+            console.log("[WriteOverlay] deleted old file:", finalPath);
+        } catch (unlinkErr) {
+            console.warn(
+                "[WriteOverlay] could not delete old file (locked by another process?)",
+                finalPath,
+            );
+            console.warn(unlinkErr);
+
+            // Fall back to a timestamped filename.
+            const dir = path.dirname(absoluteOutput);
+            const ext = path.extname(absoluteOutput);
+            const base = path.basename(absoluteOutput, ext);
+            const stamp = new Date()
+                .toISOString()
+                .replace(/[:.]/g, "-");
+            finalPath = path.join(dir, `${base}-${stamp}${ext}`);
+
+            console.warn(
+                "[WriteOverlay] writing to fallback path instead:",
+                finalPath,
+            );
+        }
+    }
+
+    console.log("[WriteOverlay] attempting ->", finalPath);
     console.log("[WriteOverlay] cwd:", process.cwd());
     console.log("[WriteOverlay] buffer bytes:", buffer.length);
 
     try {
-        writeFileSync(outputPath, buffer);
+        writeFileSync(finalPath, buffer);
     } catch (err) {
-        console.error("[WriteOverlay] FAILED to write", outputPath);
+        console.error("[WriteOverlay] FAILED to write", finalPath);
         console.error(err);
         throw err;
     }
 
-    const stat = statSync(outputPath);
+    const stat = statSync(finalPath);
     console.log(
         "[WriteOverlay] SUCCESS",
-        outputPath,
+        finalPath,
         "| bytes:", stat.size,
         "| mtime:", stat.mtime.toISOString(),
+        "| deletedOldFile:", deletedOldFile,
     );
 }
 

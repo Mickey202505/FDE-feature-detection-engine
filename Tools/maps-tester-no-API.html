@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>FDE Green Detector — Maps Tester</title>
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; font-family: sans-serif; }
+    #map {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+    #panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.95);
+      padding: 12px 16px;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      font-size: 13px;
+      max-width: 320px;
+    }
+    #panel h3 { margin: 0 0 8px; font-size: 14px; }
+    #panel button {
+      background: #1a73e8;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      margin-right: 6px;
+    }
+    #panel button:disabled { background: #aaa; cursor: default; }
+    #status { margin-top: 8px; color: #555; font-size: 12px; }
+    #coords { font-family: monospace; font-size: 12px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="panel">
+    <h3>FDE Green Detector</h3>
+    <div>1. Right-click a green to set the seed</div>
+    <div>2. Detection runs automatically</div>
+    <div>3. Reset clears the polygon</div>
+    <button id="resetBtn" disabled>Reset</button>
+    <div id="coords">Seed: —</div>
+    <div id="status">Waiting for seed click...</div>
+  </div>
+
+  <script>
+    // ---- Configuration ----
+    // Paste your Google Maps API key here (between the quotes)
+    const GOOGLE_MAPS_API_KEY = "AIzaSyBi97FiR9e68-it6_OK2BHOxHnTq3BLSbg";
+
+    // Default location — a golf course. Change to whatever you want.
+    const DEFAULT_CENTER = { lat: 53.2167427, lng: -6.1076951 }; // Dublin
+    const DEFAULT_ZOOM = 19;
+   // Editing behaviour
+    const MIN_VERTEX_DISTANCE = 15;  // pixels in image space
+
+    // ---- State ----
+    let map;
+    let seedOverlay = null;
+    let polygonOverlay = null;
+    let lastPolygon = null;
+    let vertexMarkers = [];
+    let editablePolygon = null;   // current editable pixel coords
+    let lastSeed = null;
+
+    // ---- Map init ----
+    function initMap() {
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: DEFAULT_CENTER,
+        zoom: DEFAULT_ZOOM,
+        mapTypeId: "satellite",
+        tilt: 0,
+        disableDefaultUI: true,
+        zoomControl: true,
+        disableDoubleClickZoom: true,   // ← add this
+      });
+
+      // Right-click to set seed (so normal left-drag still pans the map)
+      map.addListener("rightclick", (event) => {
+        event.domEvent.preventDefault();
+        const seed = {
+          x: event.pixel.x,
+          y: event.pixel.y,
+        };
+        document.getElementById("coords").textContent =
+          `Seed: (${seed.x}, ${seed.y})`;
+        runDetection(seed);
+      });
+    }
+
+    // ---- Detection ----
+    async function runDetection(seed) {
+      const status = document.getElementById("status");
+      const resetBtn = document.getElementById("resetBtn");
+
+      status.textContent = "Capturing map viewport...";
+
+      try {
+        const imageData = await captureMapCanvas();
+        if (!imageData) {
+          status.textContent = "Failed to capture map";
+          return;
+        }
+
+        console.log("[Debug] imageData:", imageData.width, "x", imageData.height);
+        console.log("[Debug] seed:", seed.x, seed.y);
+
+        status.textContent = "Detecting green...";
+
+        const polygon = detectGreenPolygon(imageData, seed);
+
+        // Filter out vertices that are too close to their neighbours
+        const filtered = [];
+        for (let i = 0; i < polygon.length; i++) {
+          const curr = polygon[i];
+          const prev = filtered[filtered.length - 1];
+          if (!prev || Math.hypot(curr.x - prev.x, curr.y - prev.y) >= MIN_VERTEX_DISTANCE) {
+            filtered.push(curr);
+          }
+        }
+        // Ensure last-to-first distance also respects the minimum
+        if (filtered.length >= 2) {
+          const first = filtered[0];
+          const last = filtered[filtered.length - 1];
+          if (Math.hypot(first.x - last.x, first.y - last.y) < MIN_VERTEX_DISTANCE) {
+            filtered.pop();
+          }
+        }
+
+        const testCanvas = document.createElement("canvas");
+        testCanvas.width = imageData.width;
+        testCanvas.height = imageData.height;
+        const testCtx = testCanvas.getContext("2d");
+        const testImageData = testCtx.createImageData(imageData.width, imageData.height);
+        testImageData.data.set(imageData.data);
+        testCtx.putImageData(testImageData, 0, 0);
+        const dataURL = testCanvas.toDataURL("image/png");
+        const link = document.createElement("a");
+        link.href = dataURL;
+        link.download = "captured-map.png";
+        link.textContent = "DOWNLOAD CAPTURED IMAGE";
+        link.style.position = "fixed";
+        link.style.top = "10px";
+        link.style.right = "10px";
+        link.style.zIndex = "9999";
+        link.style.background = "yellow";
+        link.style.padding = "10px";
+        document.body.appendChild(link);
+
+          console.log("[Debug] polygon vertices:", polygon ? polygon.length : 0);
+        console.log("[Debug] window:", window.innerWidth, "x", window.innerHeight);
+        if (polygon && polygon.length > 0) {
+          const xs = polygon.map(p => p.x);
+          const ys = polygon.map(p => p.y);
+          console.log("[Debug] polygon bounds:",
+            Math.min(...xs), Math.max(...xs),
+            Math.min(...ys), Math.max(...ys));
+        }
+        console.log("[Debug] filtered vertices:", filtered.length);
+
+        if (!filtered || filtered.length < 3) {
+          status.textContent = "No green found at that point";
+          return;
+        }
+
+        drawPolygon(filtered);
+        lastPolygon = filtered;
+        resetBtn.disabled = false;
+        status.textContent = `Found ${filtered.length} vertices`;
+      } catch (err) {
+        console.error(err);
+        status.textContent = "Error: " + err.message;
+      }
+    }
+
+    // ---- Capture map container ----
+    async function captureMapCanvas() {
+      const mapDiv = document.getElementById("map");
+
+      if (typeof html2canvas === "undefined") {
+        throw new Error(
+          "html2canvas not loaded — add the script tag to the HTML head",
+        );
+      }
+
+      const canvas = await html2canvas(mapDiv, {
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: null,
+        logging: false,
+        scale: 1,
+      });
+
+      const ctx = canvas.getContext("2d");
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      return {
+        width: imageData.width,
+        height: imageData.height,
+        data: imageData.data,
+      };
+    }
+
+    // ---- Detection pipeline (ported from OpenCvJsAdapter) ----
+    function detectGreenPolygon(imageData, seed) {
+      const { width, height, data } = imageData;
+
+      const readPixel = (x, y) => {
+        const i = (y * width + x) * 4;
+        return { r: data[i], g: data[i + 1], b: data[i + 2] };
+      };
+
+      const dist = (a, b) =>
+        Math.sqrt(
+          (a.r - b.r) ** 2 + (a.g - b.g) ** 2 + (a.b - b.b) ** 2,
+        );
+
+            // 1. Flood fill from seed
+      // Two tolerances:
+      //   SEED_TOLERANCE - max RGB distance from the seed colour
+      //   LOCAL_TOLERANCE - max RGB distance from an accepted neighbour
+      // A pixel is accepted only if it passes BOTH.
+      const seedColour = readPixel(seed.x, seed.y);
+      const mask = new Uint8Array(width * height);
+      const visited = new Uint8Array(width * height);
+
+      const SEED_TOLERANCE = 40;    // broad: how far from seed
+      const LOCAL_TOLERANCE = 16;   // tight: how far from neighbour
+
+      const queue = [[seed.x, seed.y]];
+      visited[seed.y * width + seed.x] = 1;
+      mask[seed.y * width + seed.x] = 1;
+
+      const NEIGHBOURS = [[-1,0],[1,0],[0,-1],[0,1]];
+
+      while (queue.length) {
+        const [cx, cy] = queue.shift();
+        for (const [dx, dy] of NEIGHBOURS) {
+          const nx = cx + dx, ny = cy + dy;
+          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+          const nIdx = ny * width + nx;
+          if (visited[nIdx]) continue;
+
+          const col = readPixel(nx, ny);
+          const neighbourColour = readPixel(cx, cy);
+
+          const seedDist = dist(col, seedColour);
+          const localDist = dist(col, neighbourColour);
+
+          if (seedDist <= SEED_TOLERANCE && localDist <= LOCAL_TOLERANCE) {
+            visited[nIdx] = 1;
+            mask[nIdx] = 1;
+            queue.push([nx, ny]);
+          }
+        }
+      }
+
+      // 2. Ray-cast boundary
+      const RAY_COUNT = 100;
+      const points = [];
+      for (let i = 0; i < RAY_COUNT; i++) {
+        const angle = (i / RAY_COUNT) * Math.PI * 2;
+        const dx = Math.cos(angle);
+        const dy = Math.sin(angle);
+        let lastX = seed.x, lastY = seed.y;
+        for (let r = 1; r < Math.max(width, height); r++) {
+          const x = Math.round(seed.x + dx * r);
+          const y = Math.round(seed.y + dy * r);
+          if (x < 0 || x >= width || y < 0 || y >= height) break;
+          if (mask[y * width + x] !== 1) break;
+          lastX = x;
+          lastY = y;
+        }
+        points.push({ x: lastX, y: lastY });
+      }
+
+      // 3. Smooth (moving average, window 3)
+      const smooth = (pts, w) => {
+        const n = pts.length;
+        const out = [];
+        for (let i = 0; i < n; i++) {
+          let sx = 0, sy = 0;
+          for (let k = -w; k <= w; k++) {
+            const j = (i + k + n) % n;
+            sx += pts[j].x;
+            sy += pts[j].y;
+          }
+          out.push({ x: Math.round(sx / (2 * w + 1)), y: Math.round(sy / (2 * w + 1)) });
+        }
+        return out;
+      };
+      const smoothed = smooth(points, 5);
+
+      // 4. Segment — bridge sharp excursions
+      const segmented = [smoothed[0]];
+      let lastGood = 0;
+      let dirX = smoothed[1].x - smoothed[0].x;
+      let dirY = smoothed[1].y - smoothed[0].y;
+      const dirLen = Math.hypot(dirX, dirY) || 1;
+      dirX /= dirLen; dirY /= dirLen;
+      const MAX_TURN = (20 * Math.PI) / 180;
+      const MAX_GAP = 8;
+
+      for (let i = 1; i < smoothed.length; i++) {
+        const prev = smoothed[i - 1];
+        const curr = smoothed[i];
+        const ex = curr.x - prev.x;
+        const ey = curr.y - prev.y;
+        const el = Math.hypot(ex, ey);
+        if (el === 0) continue;
+        const edx = ex / el, edy = ey / el;
+        const dot = Math.max(-1, Math.min(1, dirX * edx + dirY * edy));
+        const angle = Math.acos(dot);
+        if (angle <= MAX_TURN) {
+          segmented.push(curr);
+          lastGood = i;
+          const alpha = 0.5;
+          dirX = dirX * (1 - alpha) + edx * alpha;
+          dirY = dirY * (1 - alpha) + edy * alpha;
+          const newLen = Math.hypot(dirX, dirY) || 1;
+          dirX /= newLen; dirY /= newLen;
+        } else if (i - lastGood > MAX_GAP) {
+          segmented.push(curr);
+          lastGood = i;
+          dirX = edx; dirY = edy;
+        }
+      }
+
+            // 5. Resample to evenly-spaced vertices along the polygon's
+      // perimeter. Every adjacent pair (including last -> first)
+      // ends up exactly `spacing` apart.
+      const TARGET_SPACING = 35;
+      const MIN_VERTICES = 12;
+      const MAX_VERTICES = 80;
+
+      const n = segmented.length;
+      const lengths = [];
+      let total = 0;
+      for (let i = 0; i < n; i++) {
+        const a = segmented[i];
+        const b = segmented[(i + 1) % n];
+        const len = Math.hypot(b.x - a.x, b.y - a.y);
+        lengths.push(len);
+        total += len;
+      }
+
+      const computedTarget = Math.round(total / TARGET_SPACING);
+      const TARGET = Math.max(MIN_VERTICES, Math.min(MAX_VERTICES, computedTarget));
+      const spacing = total / TARGET;
+
+      // Walk the polygon and pick a point at each exact multiple
+      // of `spacing` along the total perimeter.
+      const result = [segmented[0]];
+      let travelled = 0;
+      let segIdx = 0;
+      let segStart = 0;     // distance from polygon start to start of current segment
+
+      for (let k = 1; k < TARGET; k++) {
+        const targetDist = k * spacing;
+
+        // Advance to the segment containing targetDist
+        while (segIdx < n && segStart + lengths[segIdx] < targetDist) {
+          segStart += lengths[segIdx];
+          segIdx += 1;
+        }
+
+        if (segIdx >= n) break;
+
+        const a = segmented[segIdx];
+        const b = segmented[(segIdx + 1) % n];
+        const segLen = lengths[segIdx] || 1;
+        const t = (targetDist - segStart) / segLen;
+
+        result.push({
+          x: a.x + (b.x - a.x) * t,
+          y: a.y + (b.y - a.y) * t,
+        });
+      }
+
+      return result;
+    }
+
+     // ---- Drawing ----
+       function drawPolygon(points) {
+      clearEditable();
+      editablePolygon = points.map(pixelToWorld);
+      redrawEditable();
+    }
+
+    function clearEditable() {
+      if (polygonOverlay) { polygonOverlay.setMap(null); polygonOverlay = null; }
+      for (const m of vertexMarkers) m.setMap(null);
+      vertexMarkers = [];
+      editablePolygon = null;
+    }
+
+    // Convert canvas pixel (image space) to LatLng for map display
+    function pixelToLatLng(p) {
+      const topRight = map.getProjection()
+        .fromLatLngToPoint(map.getBounds().getNorthEast());
+      const bottomLeft = map.getProjection()
+        .fromLatLngToPoint(map.getBounds().getSouthWest());
+      const scale = Math.pow(2, map.getZoom());
+      const worldPoint = new google.maps.Point(
+        p.x / scale + bottomLeft.x,
+        p.y / scale + topRight.y,
+      );
+      return map.getProjection().fromPointToLatLng(worldPoint);
+    }
+
+    // Convert LatLng back to canvas pixel
+    function latLngToPixel(latLng) {
+      const topRight = map.getProjection()
+        .fromLatLngToPoint(map.getBounds().getNorthEast());
+      const bottomLeft = map.getProjection()
+        .fromLatLngToPoint(map.getBounds().getSouthWest());
+      const scale = Math.pow(2, map.getZoom());
+      const worldPoint = map.getProjection().fromLatLngToPoint(latLng);
+      return {
+        x: Math.round((worldPoint.x - bottomLeft.x) * scale),
+        y: Math.round((worldPoint.y - topRight.y) * scale),
+      };
+    }
+
+    // World-space helpers.
+    // World coordinates are the raw Web Mercator projection point
+    // (not scaled by zoom). They stay stable across zoom and pan,
+    // and are what the meshery app uses directly for SVG.
+    function latLngToWorld(latLng) {
+      return map.getProjection().fromLatLngToPoint(latLng);
+    }
+
+    function worldToLatLng(world) {
+      return map.getProjection().fromPointToLatLng(world);
+    }
+
+    function pixelToWorld(pixel) {
+      return latLngToWorld(pixelToLatLng(pixel));
+    }
+
+    function worldToPixel(world) {
+      return latLngToPixel(worldToLatLng(world));
+    }
+
+    function getPolygonWorld() {
+      return editablePolygon ? editablePolygon.slice() : [];
+    }
+
+    function redrawEditable() {
+      if (!editablePolygon || editablePolygon.length < 3) return;
+
+      const latLngs = editablePolygon.map(worldToLatLng);
+      // Fill polygon
+      if (polygonOverlay) polygonOverlay.setMap(null);
+      polygonOverlay = new google.maps.Polygon({
+        paths: latLngs,
+        strokeColor: "#00ff00",
+        strokeOpacity: 1,
+        strokeWeight: 3,
+        fillColor: "#00ff00",
+        fillOpacity: 0.15,
+        map: map,
+      });
+      polygonOverlay.setPaths(latLngs);
+
+      // Vertex markers (draggable)
+      for (const m of vertexMarkers) m.setMap(null);
+      vertexMarkers = [];
+
+      editablePolygon.forEach((point, index) => {
+        const marker = new google.maps.Marker({
+          position: worldToLatLng(point),
+          map: map,
+          draggable: true,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 7,
+            fillColor: "#ff8800",
+            fillOpacity: 1,
+            strokeColor: "#ffffff",
+            strokeWeight: 2,
+          },
+          zIndex: 1000,
+        });
+
+        marker.addListener("drag", (event) => {
+          const newWorld = latLngToWorld(event.latLng);
+          const n = editablePolygon.length;
+          const prev = editablePolygon[(index - 1 + n) % n];
+          const next = editablePolygon[(index + 1) % n];
+
+          const newPixel = worldToPixel(newWorld);
+          const prevPixel = worldToPixel(prev);
+          const nextPixel = worldToPixel(next);
+
+          const tooClosePrev =
+            Math.hypot(newPixel.x - prevPixel.x, newPixel.y - prevPixel.y) < MIN_VERTEX_DISTANCE;
+          const tooCloseNext =
+            Math.hypot(newPixel.x - nextPixel.x, newPixel.y - nextPixel.y) < MIN_VERTEX_DISTANCE;
+
+          if (tooClosePrev || tooCloseNext) return;
+
+          editablePolygon[index] = newWorld;
+          const updatedLatLngs = editablePolygon.map(worldToLatLng);
+          polygonOverlay.setPaths(updatedLatLngs);
+        });
+
+        marker.addListener("rightclick", (event) => {
+          event.domEvent.preventDefault();
+          if (editablePolygon.length <= 3) return;
+          editablePolygon.splice(index, 1);
+          redrawEditable();
+        });
+
+        vertexMarkers.push(marker);
+      });
+
+      attachPolygonDblClick();
+    }
+
+    // Double-click a segment to insert a vertex
+      function attachPolygonDblClick() {
+      google.maps.event.clearListeners(polygonOverlay, "dblclick");
+      let lastInsertTime = 0;
+      polygonOverlay.addListener("dblclick", (event) => {
+        console.log("[dblclick] fired");
+        const now = Date.now();
+        if (now - lastInsertTime < 300) return;
+        lastInsertTime = now;
+
+        const clickedWorld = latLngToWorld(event.latLng);
+        const clickedPixel = worldToPixel(clickedWorld);
+
+        let bestIdx = 0;
+        let bestDist = Infinity;
+        const n = editablePolygon.length;
+        for (let i = 0; i < n; i++) {
+          const a = worldToPixel(editablePolygon[i]);
+          const b = worldToPixel(editablePolygon[(i + 1) % n]);
+          const midX = (a.x + b.x) / 2;
+          const midY = (a.y + b.y) / 2;
+          const d = Math.hypot(clickedPixel.x - midX, clickedPixel.y - midY);
+          if (d < bestDist) { bestDist = d; bestIdx = i; }
+        }
+
+        for (const p of editablePolygon) {
+          const pp = worldToPixel(p);
+          if (Math.hypot(clickedPixel.x - pp.x, clickedPixel.y - pp.y) < MIN_VERTEX_DISTANCE) {
+            console.log("[dblclick] rejected: too close");
+            return;
+          }
+        }
+
+        editablePolygon.splice(bestIdx + 1, 0, clickedWorld);
+        console.log("[dblclick] inserted at index", bestIdx + 1);
+        redrawEditable();
+      });
+    }
+
+    // ---- Reset ----
+      document.getElementById("resetBtn").addEventListener("click", () => {
+      clearEditable();
+      if (seedOverlay) { seedOverlay.setMap(null); seedOverlay = null; }
+      document.getElementById("resetBtn").disabled = true;
+      document.getElementById("coords").textContent = "Seed: —";
+      document.getElementById("status").textContent = "Waiting for seed click...";
+    });
+
+    window.initMap = initMap;
+  </script>
+
+  <!-- html2canvas for capturing the map -->
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
+  <!-- Google Maps API — paste your key in the URL below, replacing YOUR_API_KEY_HERE -->
+  <script
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBi97FiR9e68-it6_OK2BHOxHnTq3BLSbg&callback=initMap"
+    async defer
+  ></script>
+</body>
+</html>

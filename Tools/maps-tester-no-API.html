@@ -456,17 +456,18 @@
 
     function redrawEditable() {
       if (!editablePolygon || editablePolygon.length < 3) return;
-
       const latLngs = editablePolygon.map(worldToLatLng);
-      // Fill polygon
       if (polygonOverlay) polygonOverlay.setMap(null);
+
+      const featureType = getFeatureType();
+      const isBunker = featureType === "bunker";
+      const strokeColour = isBunker ? "#ffcc44" : "#00ff00";
+      const fillColour   = isBunker ? "#ffcc44" : "#00ff00";
+
       polygonOverlay = new google.maps.Polygon({
         paths: latLngs,
-        strokeColor: "#00ff00",
-        strokeOpacity: 1,
-        strokeWeight: 3,
-        fillColor: "#00ff00",
-        fillOpacity: 0.15,
+        strokeColor: strokeColour, strokeOpacity: 1, strokeWeight: 3,
+        fillColor: fillColour, fillOpacity: 0.15,
         map: map,
       });
       polygonOverlay.setPaths(latLngs);

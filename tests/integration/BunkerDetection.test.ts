@@ -203,6 +203,11 @@ describe("BunkerDetector", () => {
                 seed,
             );
 
+        console.log("[RawCoords]");
+        for (const p of maskBoundary) {
+            console.log(`${Math.round(p.x)},${Math.round(p.y)}`);
+        }
+        
             writeOverlay(
                 imageData,
                 maskBoundary,

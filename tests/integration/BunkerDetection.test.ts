@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, statSync } from "node:fs";
 import { PNG } from "pngjs";
 import { OpenCvJsAdapter, BUNKER_MASK_OPTIONS } from "../../src/application/opencv/OpenCvJsAdapter";
 import openCvRuntime from "../../src/infrastructure/opencv/OpenCvJsRuntime";
@@ -26,8 +26,6 @@ function writeMaskImage(
         }
     }
 
-    writeFileSync(outputPath, PNG.sync.write(png));
-
     let whiteCount = 0;
     for (let y = 0; y < mask.rows; y += 1) {
         for (let x = 0; x < mask.cols; x += 1) {
@@ -46,7 +44,7 @@ function writeMaskImage(
 }
 
 function loadBunkerImage(): OpenCvImageData {
-        const file = readFileSync("tests/fixtures/bunker-norim-1.png");
+    const file = readFileSync("tests/fixtures/bunker-norim-1.png");
     const png = PNG.sync.read(file);
 
     return {
@@ -119,7 +117,7 @@ function writeOverlay(
         );
     }
 
-    // Yellow markers every 4th vertex, small
+    // Yellow markers at every vertex
     for (let i = 0; i < points.length; i += 1) {
         const p = points[i];
         for (let dx = -1; dx <= 1; dx += 1) {
@@ -137,7 +135,27 @@ function writeOverlay(
         }
     }
 
-    writeFileSync(outputPath, PNG.sync.write(png));
+    const buffer = PNG.sync.write(png);
+
+    console.log("[WriteOverlay] attempting ->", outputPath);
+    console.log("[WriteOverlay] cwd:", process.cwd());
+    console.log("[WriteOverlay] buffer bytes:", buffer.length);
+
+    try {
+        writeFileSync(outputPath, buffer);
+    } catch (err) {
+        console.error("[WriteOverlay] FAILED to write", outputPath);
+        console.error(err);
+        throw err;
+    }
+
+    const stat = statSync(outputPath);
+    console.log(
+        "[WriteOverlay] SUCCESS",
+        outputPath,
+        "| bytes:", stat.size,
+        "| mtime:", stat.mtime.toISOString(),
+    );
 }
 
 describe("BunkerDetector", () => {
@@ -159,11 +177,9 @@ describe("BunkerDetector", () => {
             "tests/fixtures/bunker-mask.png",
         );
 
-        const points = adapter.detectBunkerBoundary(imageData, seed);
-                console.log("[Coords]");
-        for (const p of points) {
-            console.log(`${Math.round(p.x)},${Math.round(p.y)}`);
-        }
+        // Use the perfect mask we already generated, not a new ray-cast attempt
+        const points = adapter.extractBoundaryFromMask(rawMask, 14);
+
         let totalPerim = 0;
         for (let i = 0; i < points.length; i += 1) {
             const a = points[i];
@@ -172,13 +188,6 @@ describe("BunkerDetector", () => {
         }
         console.log("[BunkerTest] polygon perimeter:", Math.round(totalPerim));
         console.log("[BunkerTest] polygon point count:", points.length);
-
-        console.log("[Polygon]", points);
-        
-        console.log(
-            "[BunkerTest] point count:",
-            points.length
-        );
 
         if (points.length > 0) {
             const xs = points.map((p) => p.x);
@@ -196,25 +205,9 @@ describe("BunkerDetector", () => {
                 points,
                 "tests/fixtures/bunker-norim-1-detected.png"
             );
-
-            const maskBoundary =
-            adapter.extractBoundaryByRaysForDiagnostics(
-                rawMask,
-                seed,
-            );
-
-        console.log("[RawCoords]");
-        for (const p of maskBoundary) {
-            console.log(`${Math.round(p.x)},${Math.round(p.y)}`);
         }
-        
-            writeOverlay(
-                imageData,
-                maskBoundary,
-                "tests/fixtures/bunker-mask-boundary.png"
-            );
-        }
-            rawMask.delete();
+
+        rawMask.delete();
         expect(points.length).toBeGreaterThanOrEqual(3);
     }, 30000);
 });

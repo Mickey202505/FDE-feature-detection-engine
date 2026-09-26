@@ -46,7 +46,6 @@ export const BUNKER_MASK_OPTIONS: FeatureMaskOptions = {
   maximumAcceptedNeighbourColourSpread: 20,
 };
 
-
 export class OpenCvJsAdapter {
   private readonly cv: OpenCvRuntime;
 
@@ -185,7 +184,7 @@ export class OpenCvJsAdapter {
     }
   }
 
-   private createBinaryImage(
+  private createBinaryImage(
     image: OpenCvImageData,
     seed?: PixelPoint,
   ): OpenCvMat {
@@ -218,24 +217,6 @@ export class OpenCvJsAdapter {
     seed: PixelPoint,
     options: FeatureMaskOptions = GREEN_MASK_OPTIONS,
   ): OpenCvMat {
-    /**
-     * The supplied seed is the user's primary evidence.
-     *
-     * Nearby seeds are also grown so that their behaviour
-     * remains observable and available for future validation
-     * logic.
-     *
-     * They do NOT independently truncate the requested seed's
-     * region.
-     *
-     * Previously, all growth masks were intersected. That meant
-     * the most restrictive nearby seed became the effective
-     * boundary. In the gradual-colour-transition case, the
-     * auxiliary seed at (-6, 0) stopped at x=96 while the
-     * requested seed reached x=99.
-     *
-     * No growth thresholds are changed here.
-     */
     const seedOffsets: PixelPoint[] = [
       { x: 0, y: 0 },
       { x: -6, y: 0 },
@@ -286,12 +267,6 @@ export class OpenCvJsAdapter {
         return this.createEmptyMask(image);
       }
 
-      /**
-       * The first mask corresponds to { x: 0, y: 0 },
-       * therefore it is the requested seed's mask.
-       *
-       * The requested seed remains authoritative.
-       */
       const primaryMask = masks[0];
 
       const combined = new this.cv.Mat(
@@ -326,9 +301,9 @@ export class OpenCvJsAdapter {
         }
       }
 
-        console.log(
-          "[SeedConsensusDiagnostic]",
-         {
+      console.log(
+        "[SeedConsensusDiagnostic]",
+        {
           requestedSeed: seed,
           growthSeeds: masks.length,
           strategy:
@@ -337,10 +312,7 @@ export class OpenCvJsAdapter {
         },
       );
 
-      // Fill small holes and connect nearby specks in the mask.
-      // Without this, rays stop at internal black spots inside
-      // the green and the boundary cuts inward.
-            const closeKernel = this.cv.getStructuringElement!(
+      const closeKernel = this.cv.getStructuringElement!(
         this.cv.MORPH_ELLIPSE!,
         new this.cv.Size!(5, 5),
       );
@@ -367,10 +339,12 @@ export class OpenCvJsAdapter {
 
       return closedMask;
     } finally {
+      for (const m of masks) {
+        (m as { delete?: () => void }).delete?.();
+      }
     }
   }
-
-  private createSingleSeedGuidedRegionMask(
+    private createSingleSeedGuidedRegionMask(
     image: OpenCvImageData,
     seed: PixelPoint,
     options: FeatureMaskOptions = GREEN_MASK_OPTIONS,
@@ -401,7 +375,7 @@ export class OpenCvJsAdapter {
       seedY,
     );
 
-   if (!options.isFeaturePixel(seedColour)) {
+    if (!options.isFeaturePixel(seedColour)) {
       return mask;
     }
 
@@ -420,11 +394,6 @@ export class OpenCvJsAdapter {
     queueX.push(seedX);
     queueY.push(seedY);
 
-    /**
-     * Local colour continuity controls how
-     * far a candidate pixel may differ from
-     * the already accepted neighbourhood.
-     */
     const localTolerance = options.localTolerance;
     const seedTolerance = options.seedTolerance;
     const gradualTransitionSeedTolerance =
@@ -437,16 +406,6 @@ export class OpenCvJsAdapter {
       seedTolerance + 5;
     const maximumAcceptedNeighbourColourSpread =
       options.maximumAcceptedNeighbourColourSpread;
-    /**
-     * ---------------------------------------------------------
-     * DIAGNOSTICS ONLY
-     * ---------------------------------------------------------
-     *
-     * These values do NOT affect acceptance/rejection.
-     *
-     * The diagnostic window begins 40 pixels to the right
-     * of the seed.
-     */
 
     const diagnosticStartX = seedX + 40;
     const diagnosticRejectionLimit = 40;
@@ -468,12 +427,6 @@ export class OpenCvJsAdapter {
       reason: string,
       details: Record<string, unknown>,
     ): void => {
-      /**
-       * Diagnostic logging only.
-       *
-       * Restrict this to the right-hand diagnostic region
-       * and stop after a small number of records.
-       */
       if (
         details.x === undefined ||
         typeof details.x !== "number" ||
@@ -495,12 +448,6 @@ export class OpenCvJsAdapter {
       );
     };
 
-    /**
-     * Diagnostic values only.
-     *
-     * They tell us how far the accepted region travels from
-     * the original seed colour.
-     */
     let maximumSeedDistance = 0;
 
     let maximumSeedDistancePoint:
@@ -580,12 +527,6 @@ export class OpenCvJsAdapter {
             seedColour,
           );
 
-        /**
-         * Diagnostic only.
-         *
-         * We record the furthest colour encountered from
-         * the original seed colour.
-         */
         if (
           seedDistance >
           maximumSeedDistance
@@ -599,16 +540,6 @@ export class OpenCvJsAdapter {
           };
         }
 
-        /**
-         * Important:
-         *
-         * We deliberately do NOT reject the candidate based
-         * solely on its distance from the original seed colour.
-         *
-         * The region is allowed to follow a gradual colour
-         * change. The local neighbourhood check below controls
-         * continuity.
-         */
         const localColour =
           this.getLocalAcceptedColour(
             image,
@@ -645,19 +576,6 @@ export class OpenCvJsAdapter {
           continue;
         }
 
-        /**
-         * Most candidates must remain reasonably
-         * close to the original seed colour.
-         *
-         * A small exception allows a genuinely
-         * gradual transition to continue when the
-         * candidate is strongly supported by several
-         * already accepted neighbours.
-         *
-         * This keeps the useful gradual-transition
-         * behaviour without allowing unlimited colour
-         * drift through turf.
-         */
         const closeNeighbourCount =
           this.countCloseAcceptedNeighbours(
             image,
@@ -686,7 +604,7 @@ export class OpenCvJsAdapter {
             gradualTransitionLocalTolerance,
           );
 
-          if (
+        if (
           seedDistance > seedTolerance &&
           (
             seedDistance >
@@ -737,12 +655,6 @@ export class OpenCvJsAdapter {
         queueX.push(nextX);
         queueY.push(nextY);
 
-        /**
-         * DIAGNOSTIC ONLY.
-         *
-         * Track the actual bounds of the pixels that
-         * successfully entered the growth region.
-         */
         acceptedPixelCount += 1;
 
         minimumAcceptedX =
@@ -771,11 +683,6 @@ export class OpenCvJsAdapter {
       }
     }
 
-    /**
-     * Diagnostic only.
-     *
-     * This does not change the mask.
-     */
     console.log(
       "[SeedGrowthDiagnostic]",
       {
@@ -817,7 +724,6 @@ export class OpenCvJsAdapter {
     return mask;
   }
 
-
   public extractBoundaryByRaysForDiagnostics(
     mask: OpenCvMat,
     seed: PixelPoint,
@@ -838,35 +744,35 @@ export class OpenCvJsAdapter {
       const dx = Math.cos(angle);
       const dy = Math.sin(angle);
 
-        let lastWhiteX = Math.round(seed.x);
-        let lastWhiteY = Math.round(seed.y);
-        let consecutiveBlack = 0;
-        const blackRunThreshold = 4;
+      let lastWhiteX = Math.round(seed.x);
+      let lastWhiteY = Math.round(seed.y);
+      let consecutiveBlack = 0;
+      const blackRunThreshold = 4;
 
-        for (let r = 1; r < maxRadius; r += 1) {
-          const x = Math.round(seed.x + dx * r);
-          const y = Math.round(seed.y + dy * r);
+      for (let r = 1; r < maxRadius; r += 1) {
+        const x = Math.round(seed.x + dx * r);
+        const y = Math.round(seed.y + dy * r);
 
-          if (x < 0 || x >= mask.cols || y < 0 || y >= mask.rows) {
-            break;
-          }
-
-          const value = mask.ucharPtr!(y, x)[0];
-
-          if (value === 0) {
-            consecutiveBlack += 1;
-
-            if (consecutiveBlack >= blackRunThreshold) {
-              break;
-            }
-          } else {
-            consecutiveBlack = 0;
-            lastWhiteX = x;
-            lastWhiteY = y;
-          }
+        if (x < 0 || x >= mask.cols || y < 0 || y >= mask.rows) {
+          break;
         }
 
-        points.push({ x: lastWhiteX, y: lastWhiteY });
+        const value = mask.ucharPtr!(y, x)[0];
+
+        if (value === 0) {
+          consecutiveBlack += 1;
+
+          if (consecutiveBlack >= blackRunThreshold) {
+            break;
+          }
+        } else {
+          consecutiveBlack = 0;
+          lastWhiteX = x;
+          lastWhiteY = y;
+        }
+      }
+
+      points.push({ x: lastWhiteX, y: lastWhiteY });
     }
 
     return points;
@@ -910,7 +816,7 @@ export class OpenCvJsAdapter {
     return smoothed;
   }
 
-    public segmentBoundaryForDiagnostics(
+  public segmentBoundaryForDiagnostics(
     points: readonly PixelPoint[],
   ): PixelPoint[] {
     return this.segmentBoundary(points);
@@ -976,8 +882,7 @@ export class OpenCvJsAdapter {
 
     return result;
   }
-
-  public subsampleToCountForDiagnostics(
+    public subsampleToCountForDiagnostics(
     points: readonly PixelPoint[],
     targetCount: number,
   ): PixelPoint[] {
@@ -1093,7 +998,6 @@ export class OpenCvJsAdapter {
     return result;
   }
 
-
   public detectGreenBoundary(
     image: OpenCvImageData,
     seed: PixelPoint,
@@ -1111,7 +1015,7 @@ export class OpenCvJsAdapter {
     }
   }
 
-    public detectBunkerBoundary(
+  public detectBunkerBoundary(
     image: OpenCvImageData,
     seed: PixelPoint,
   ): PixelPoint[] {
@@ -1129,6 +1033,58 @@ export class OpenCvJsAdapter {
       if (typeof mask.delete === "function") {
         mask.delete();
       }
+    }
+  }
+
+  public extractBoundaryFromMask(
+    mask: OpenCvMat,
+    targetSpacing: number = 14,
+  ): PixelPoint[] {
+    const contours = new this.cv.MatVector();
+    const hierarchy = new this.cv.Mat();
+
+    try {
+      // CHAIN_APPROX_NONE returns every boundary pixel — no corners dropped.
+      this.cv.findContours(
+        mask,
+        contours,
+        hierarchy,
+        this.cv.RETR_EXTERNAL,
+        this.cv.CHAIN_APPROX_NONE,
+      );
+
+      if (contours.size() === 0) {
+        return [];
+      }
+
+      // Find the largest contour by area (this will be the bunker).
+      let largestContourIndex = 0;
+      let maxArea = 0;
+
+      for (let i = 0; i < contours.size(); i++) {
+        const contour = contours.get(i);
+        const points = this.readContourPoints(contour);
+        const area = this.calculatePolygonArea(points);
+
+        if (area > maxArea) {
+          maxArea = area;
+          largestContourIndex = i;
+        }
+        contour.delete();
+      }
+
+      const largestContour = contours.get(largestContourIndex);
+      const points = this.readContourPoints(largestContour);
+
+      largestContour.delete();
+
+      // Resample directly from the dense pixel contour.
+      // No approxPolyDP, no smoothing — every curve is preserved.
+      return this.resampleBySpacing(points, targetSpacing, 10, 2000);
+
+    } finally {
+      contours.delete();
+      hierarchy.delete();
     }
   }
 

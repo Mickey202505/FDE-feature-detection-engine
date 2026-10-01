@@ -1,5 +1,6 @@
 import type {
     OpenCvContour,
+    OpenCvImageData,
     OpenCvMat
 } from "./OpenCvTypes";
 
@@ -10,4 +11,14 @@ export interface OpenCvAdapter {
         image: OpenCvMat,
         seed?: PixelPoint
     ): readonly OpenCvContour[];
+
+    detectGreenBoundary(
+        image: OpenCvImageData | OpenCvMat,
+        seed: PixelPoint
+    ): readonly PixelPoint[];
+
+    detectBunkerBoundary(
+        image: OpenCvImageData | OpenCvMat,
+        seed: PixelPoint
+    ): readonly PixelPoint[];
 }

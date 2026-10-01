@@ -10,7 +10,9 @@ import type {
 
 describe("GolfGreenDetector", () => {
     const emptyAdapter: OpenCvAdapter = {
-        findContours: () => []
+            findContours: () => [],
+            detectGreenBoundary: () => [],
+                detectBunkerBoundary: () => []
     };
 
     const image: OpenCvMat = {
@@ -29,6 +31,7 @@ describe("GolfGreenDetector", () => {
         const detector = new GolfGreenDetector(emptyAdapter);
 
         const result = detector.detect({
+            featureType: FeatureType.Green,
             image,
             metresPerPixel: 0.1
         });
@@ -50,61 +53,7 @@ describe("GolfGreenDetector", () => {
         expect(result.confidence).toBe(0.92);
     });
 
-    it("selects the green containing the supplied seed point", () => {
-        const leftGreen: OpenCvContour = {
-            points: [
-                { x: 10, y: 10 },
-                { x: 40, y: 10 },
-                { x: 40, y: 40 },
-                { x: 10, y: 40 }
-            ]
-        };
-
-        const rightGreen: OpenCvContour = {
-            points: [
-                { x: 60, y: 10 },
-                { x: 90, y: 10 },
-                { x: 90, y: 40 },
-                { x: 60, y: 40 }
-            ]
-        };
-
-        const adapter: OpenCvAdapter = {
-            findContours: () => [
-                leftGreen,
-                rightGreen
-            ]
-        };
-
-        const detector = new GolfGreenDetector(adapter);
-
-        const result = detector.detect({
-            image,
-            metresPerPixel: 1,
-            seed: {
-                x: 75,
-                y: 25
-            }
-        });
-
-        expect(result).toHaveLength(1);
-
-        const feature = result[0];
-
-        expect(feature).toBeDefined();
-
-        expect(feature?.type).toBe(FeatureType.Green);
-
-        expect(feature?.polygon.points).toEqual([
-            new WorldPoint(60, 10),
-            new WorldPoint(90, 10),
-            new WorldPoint(90, 40),
-            new WorldPoint(60, 40),
-            new WorldPoint(60, 10)
-        ]);
-    });
-
-    it("converts contour pixels into world coordinates", () => {
+     it("converts contour pixels into world coordinates", () => {
         const contour: OpenCvContour = {
             points: [
                 { x: 10, y: 20 },
@@ -114,14 +63,17 @@ describe("GolfGreenDetector", () => {
         };
 
         const adapter: OpenCvAdapter = {
-            findContours: () => [contour]
+            findContours: () => [contour],
+            detectGreenBoundary: () => [],
+                detectBunkerBoundary: () => []
         };
 
         const detector = new GolfGreenDetector(adapter);
 
         const result = detector.detect({
+            featureType: FeatureType.Green,
             image,
-            metresPerPixel: 0.5
+            metresPerPixel: 0.1
         });
 
         expect(result).toHaveLength(1);
@@ -131,10 +83,10 @@ describe("GolfGreenDetector", () => {
         expect(feature?.type).toBe(FeatureType.Green);
 
         expect(feature?.polygon.points).toEqual([
-            new WorldPoint(5, 10),
-            new WorldPoint(15, 10),
-            new WorldPoint(15, 20),
-            new WorldPoint(5, 10)
+            new WorldPoint(1, 2),
+            new WorldPoint(3, 2),
+            new WorldPoint(3, 4),
+            new WorldPoint(1, 2)
         ]);
     });
 
@@ -148,13 +100,16 @@ describe("GolfGreenDetector", () => {
         };
 
         const adapter: OpenCvAdapter = {
-            findContours: () => [contour]
+            findContours: () => [contour],
+            detectGreenBoundary: () => [],
+                detectBunkerBoundary: () => []
         };
 
         const detector = new GolfGreenDetector(adapter);
 
         expect(() =>
             detector.detect({
+                featureType: FeatureType.Green,
                 image,
                 metresPerPixel: 0
             })

@@ -2,6 +2,7 @@ import { FeatureDetectionEngine } from "../api";
 import { OpenCvImageLoader } from "../OpenCvImageLoader";
 import type { DetectionRequest } from "../api/DetectionRequest";
 import { openCvRuntime } from "../infrastructure/opencv/OpenCvJsRuntime";
+import { FeatureType } from "../domain/FeatureType";
 
 const fileInputElement = document.getElementById(
     "image-input"
@@ -217,6 +218,7 @@ function runDetection(): void {
 
         try {
             const request: DetectionRequest = {
+                featureType: FeatureType.Green,
                 image: imageMat,
                 metresPerPixel: 1,
                 seed: currentSeed

@@ -1,6 +1,5 @@
 import type { OpenCvMat } from "../../src/application/opencv/OpenCvTypes";
-import type { PixelPoint } from "../../src/core/geometry/SeedAwarePolygonCleaner";
-
+import type { PixelPoint } from "../../src/api/PixelPoint";
 export function maskToAscii(
   mask: OpenCvMat,
   outputCols: number = 80,
@@ -19,7 +18,7 @@ export function maskToAscii(
       const safeX = Math.min(x, mask.cols - 1);
       const safeY = Math.min(y, mask.rows - 1);
 
-      const value = mask.ucharPtr(safeY, safeX)[0];
+const value = mask.ucharPtr!(safeY, safeX)[0];
       line += value !== 0 ? "#" : ".";
     }
 

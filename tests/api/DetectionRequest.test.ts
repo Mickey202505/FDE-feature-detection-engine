@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { DetectionRequest } from "../../src/api/DetectionRequest";
+import { FeatureType } from "../../src/domain/FeatureType";
 
 describe("DetectionRequest", () => {
     it("can represent an image detection request", () => {
         const request: DetectionRequest = {
+            featureType: FeatureType.Green,
             image: {
                 rows: 100,
                 cols: 100,
@@ -17,6 +19,7 @@ describe("DetectionRequest", () => {
 
     it("can represent an image-space seed point", () => {
         const request: DetectionRequest = {
+            featureType: FeatureType.Green,
             image: {
                 rows: 100,
                 cols: 100,
@@ -25,13 +28,10 @@ describe("DetectionRequest", () => {
             metresPerPixel: 0.1,
             seed: {
                 x: 50,
-                y: 40
+                y: 60
             }
         };
 
-        expect(request.seed).toEqual({
-            x: 50,
-            y: 40
-        });
+        expect(request.seed).toEqual({ x: 50, y: 60 });
     });
 });

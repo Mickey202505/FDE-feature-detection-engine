@@ -147,6 +147,69 @@ This supports processing all five bunkers efficiently.
 
 ### Green
 
+"Green Detection Pipeline" section that matches the existing style (ASCII diagram + responsibilities). It documents:
+
+    Input (aerial imagery + seed)
+
+    Two-tolerance flood fill
+
+    Ray-cast boundary
+
+    Smooth → segment → uniform resample
+
+    Output in world coordinates (Web Mercator)
+
+    The browser tester as a reference implementation
+
+
+## Green Detection Pipeline
+
+The green detector is a specialised pipeline that converts a user's seed click into a closed polygon suitable for editing and export.
+
+Seed click (image-space pixel)
+   |
+   v
+Two-Tolerance Flood Fill
+   |   seedTolerance = 40, localTolerance = 16
+   v
+Binary Mask
+   |
+   v
+Ray-Cast Boundary
+   |   100 rays from seed
+   v
+Raw Boundary Points (100)
+   |
+   v
+Smoothing (moving average, window 3)
+   |
+   v
+Segmentation (angle-based, 20° tolerance)
+   |
+   v
+Uniform Arc-Length Resample
+   |   targetSpacing = 25 px
+   |   minVertices = 12, maxVertices = 80
+   v
+World-Space Polygon
+   |   Web Mercator coordinates
+   v
+Editable Feature Geometry
+
+Note:
+These are the working in maps-testing.hyml
+SEED_TOLERANCE = 40
+
+LOCAL_TOLERANCE = 16
+
+TARGET_SPACING = 25
+
+MIN_VERTICES = 12
+
+MAX_VERTICES = 80
+
+MIN_VERTEX_DISTANCE = 15
+
 1. User selects `Green`.
 2. User clicks approximately near the centre of the green.
 3. The engine uses that click as the seed/location.

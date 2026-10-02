@@ -39,7 +39,8 @@ const fakeCv: OpenCvRuntime = {
     CV_8U: 0,
     RETR_EXTERNAL: 0,
     CHAIN_APPROX_SIMPLE: 2,
-
+    CHAIN_APPROX_NONE: 2,
+    
     Size: class {
         public constructor(
             public readonly width: number,

@@ -107,6 +107,7 @@ export interface OpenCvRuntime {
 
     readonly RETR_EXTERNAL: number;
     readonly CHAIN_APPROX_SIMPLE: number;
+    readonly CHAIN_APPROX_NONE: number;
     readonly CV_8U: number;
 
     readonly COLOR_RGBA2RGB?: number;

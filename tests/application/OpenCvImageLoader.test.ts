@@ -52,6 +52,7 @@ function createRuntime(): OpenCvRuntime {
         CV_8U: 0,
         RETR_EXTERNAL: 0,
         CHAIN_APPROX_SIMPLE: 1,
+        CHAIN_APPROX_NONE: 2,
         
         Size: class {
             public constructor(

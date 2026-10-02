@@ -664,6 +664,21 @@ var OpenCvJsAdapter = class {
       }
     }
   }
+  detectGreenBoundaryRobust(image, seed) {
+    const mask = this.createSeedGuidedRegionMask(
+      image,
+      seed,
+      GREEN_MASK_OPTIONS
+    );
+    try {
+      const raw = this.extractBoundaryByRays(mask, seed, 360);
+      return this.smoothBoundary(raw, 4);
+    } finally {
+      if (typeof mask.delete === "function") {
+        mask.delete();
+      }
+    }
+  }
   detectBunkerBoundary(image, seed) {
     const mask = this.createSeedGuidedRegionMask(
       image,
@@ -748,52 +763,6 @@ var OpenCvJsAdapter = class {
       }
     }
     return mask;
-  }
-  isGrass(colour) {
-    const r = colour.r / 255;
-    const g = colour.g / 255;
-    const b = colour.b / 255;
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    const delta = max - min;
-    if (max < 0.15) return false;
-    if (delta === 0) return false;
-    let h = 0;
-    if (max === r) h = (g - b) / delta % 6;
-    else if (max === g) h = (b - r) / delta + 2;
-    else h = (r - g) / delta + 4;
-    h *= 60;
-    if (h < 0) h += 360;
-    return h >= 58 && h <= 150;
-  }
-  extendToGrassEdge(points, seed, image, maxSteps) {
-    const result = [];
-    for (const p of points) {
-      const dx = p.x - seed.x;
-      const dy = p.y - seed.y;
-      const len = Math.hypot(dx, dy) || 1;
-      const ux = dx / len;
-      const uy = dy / len;
-      let lastX = Math.round(p.x);
-      let lastY = Math.round(p.y);
-      for (let step = 1; step <= maxSteps; step += 1) {
-        const x = Math.round(p.x + ux * step);
-        const y = Math.round(p.y + uy * step);
-        if (x < 0 || x >= image.width) break;
-        if (y < 0 || y >= image.height) break;
-        const colour = this.readPixel(image, x, y);
-        if (this.isGrass(colour)) break;
-        lastX = x;
-        lastY = y;
-      }
-      console.log("[Walk]", {
-        from: { x: Math.round(p.x), y: Math.round(p.y) },
-        to: { x: lastX, y: lastY },
-        dist: Math.round(Math.hypot(lastX - p.x, lastY - p.y))
-      });
-      result.push({ x: lastX, y: lastY });
-    }
-    return result;
   }
   readPixel(image, x, y) {
     const index = (y * image.width + x) * 4;
@@ -1545,8 +1514,12 @@ function detectFeatureFromMask(mask) {
 function applySmoothing(points, options) {
   return smoothPolygon(points, { ...DEFAULT_SMOOTH_OPTIONS, ...options });
 }
+function detectFeature(cv, imageData, seed, featureType) {
+  return detectFeatureColour(cv, imageData, seed, featureType);
+}
 export {
   applySmoothing,
+  detectFeature,
   detectFeatureColour,
   detectFeatureFromMask
 };

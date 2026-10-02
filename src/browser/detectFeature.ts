@@ -13,7 +13,10 @@ import {
   DEFAULT_SMOOTH_OPTIONS,
   type SmoothOptions,
 } from "../application/geometry/smoothPolygon.js";
-import { maskToPolygon, type MaskLike } from "../application/sam/maskToPolygon.js";
+import {
+  maskToPolygon,
+  type MaskLike,
+} from "../application/sam/maskToPolygon.js";
 
 export type FeatureType = "green" | "bunker";
 
@@ -50,8 +53,8 @@ export function detectFeatureColour(
 }
 
 /**
- * SAM-based detection. Takes the raw mask SAM returns and produces pixel-space points.
- * No 14px resampling yet — smoothing handles reduction.
+ * SAM-based detection. Takes the raw mask SAM returns and produces
+ * pixel-space points.
  */
 export function detectFeatureFromMask(mask: MaskLike): PixelPoint[] {
   return maskToPolygon(mask, 0.4);
@@ -65,4 +68,18 @@ export function applySmoothing(
   options?: Partial<SmoothOptions>,
 ): PixelPoint[] {
   return smoothPolygon(points, { ...DEFAULT_SMOOTH_OPTIONS, ...options });
+}
+
+/**
+ * Single entry point for the local viewer and any other browser consumer.
+ * Currently delegates to the colour detector. If we ever add SAM2 in the
+ * browser, this is where it would branch.
+ */
+export function detectFeature(
+  cv: OpenCvRuntime,
+  imageData: DetectFeatureImageData,
+  seed: PixelPoint,
+  featureType: FeatureType,
+): PixelPoint[] {
+  return detectFeatureColour(cv, imageData, seed, featureType);
 }

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Local feature viewer</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #111; font-family: sans-serif; }
+    #panel {
+      position: fixed; top: 12px; left: 12px; z-index: 10;
+      background: rgba(20, 20, 20, 0.9); color: #eee;
+      padding: 12px 16px; border-radius: 6px; font-size: 13px;
+      max-width: 260px;
+    }
+    #panel h3 { margin: 0 0 8px; font-size: 14px; }
+    #panel .row { margin: 6px 0; }
+    #panel button {
+      background: #1a73e8; color: white; border: none;
+      padding: 6px 12px; border-radius: 4px; cursor: pointer;
+      font-size: 13px; margin-right: 6px;
+    }
+    #panel button:disabled { background: #555; cursor: default; }
+    #panel input[type="radio"] { margin-right: 4px; }
+    #status { margin-top: 8px; color: #aaa; font-size: 12px; }
+    #seed { font-family: monospace; font-size: 12px; color: #ccc; }
+    #stage {
+      position: absolute; top: 0; left: 0;
+      padding: 60px 0 0 300px;
+    }
+    #wrap {
+      position: relative; display: inline-block;
+      background: #000;
+    }
+    #img { display: block; user-select: none; }
+    #svg {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+    #overlay {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      cursor: crosshair;
+    }
+  </style>
+</head>
+<body>
+
+<div id="panel">
+  <h3>Local feature viewer</h3>
+  <div class="row">
+    <label><input type="radio" name="feature" value="green" checked> Green</label>
+    <label><input type="radio" name="feature" value="bunker"> Bunker</label>
+  </div>
+  <div class="row">
+    <button id="reset">Reset</button>
+  </div>
+  <div class="row">
+    <label><input type="checkbox" id="showRaw"> Show raw (no smoothing)</label>
+  </div>
+  <div id="seed">Seed: —</div>
+  <div id="status">Loading…</div>
+</div>
+
+<div id="stage">
+  <div id="wrap">
+  <img id="img" src="./satellite-tile.png" alt="tile">    <svg id="svg"></svg>
+  <div id="overlay"></div>
+  </div>
+</div>
+
+<script>
+  window.__opencvReady = false;
+  window.__opencvCallbacks = [];
+  var Module = {
+    onRuntimeInitialized: function () {
+      window.__opencvReady = true;
+      window.__opencvCallbacks.forEach(function (fn) { fn(); });
+      window.__opencvCallbacks = [];
+    }
+  };
+</script>
+<script src="./opencv.js"></script>
+
+<script type="module">
+  import {
+    detectFeature,
+    applySmoothing,
+  } from "./detector.bundle.js";
+
+  const img = document.getElementById("img");
+  const svg = document.getElementById("svg");
+  const overlay = document.getElementById("overlay");
+  const statusEl = document.getElementById("status");
+  const seedEl = document.getElementById("seed");
+  const resetBtn = document.getElementById("reset");
+  const showRaw = document.getElementById("showRaw");
+
+  let lastRaw = null;   // raw pixel-space points from the detector
+  let lastSeed = null;
+
+  function featureType() {
+    const el = document.querySelector('input[name="feature"]:checked');
+    return el ? el.value : "green";
+  }
+
+  function syncSvg() {
+    svg.setAttribute("viewBox", `0 0 ${img.naturalWidth} ${img.naturalHeight}`);
+    svg.setAttribute("width", img.clientWidth);
+    svg.setAttribute("height", img.clientHeight);
+    overlay.style.width = img.clientWidth + "px";
+    overlay.style.height = img.clientHeight + "px";
+  }
+
+  function draw(points, colour) {
+    svg.innerHTML = "";
+    if (!points || points.length < 3) return;
+
+    const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+    poly.setAttribute(
+      "points",
+      points.map(p => `${p.x},${p.y}`).join(" ")
+    );
+    poly.setAttribute("fill", colour + "33");
+    poly.setAttribute("stroke", colour);
+    poly.setAttribute("stroke-width", "3");
+    poly.setAttribute("stroke-linejoin", "round");
+    svg.appendChild(poly);
+
+    // Also draw a marker at the seed
+    if (lastSeed) {
+      const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      c.setAttribute("cx", lastSeed.x);
+      c.setAttribute("cy", lastSeed.y);
+      c.setAttribute("r", 6);
+      c.setAttribute("fill", "#ff0066");
+      c.setAttribute("stroke", "#fff");
+      c.setAttribute("stroke-width", "2");
+      svg.appendChild(c);
+    }
+  }
+
+  function runDetection(pixel) {
+    if (!window.__opencvReady) {
+      statusEl.textContent = "OpenCV still loading…";
+      return;
+    }
+
+    statusEl.textContent = "Detecting…";
+
+    // Grab the image pixels. We render the PNG at native size, so the
+    // coordinates we get from the click map directly to pixel space.
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+    const idata = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    const imageData = {
+      width: idata.width,
+      height: idata.height,
+      data: idata.data,
+    };
+
+    try {
+      const type = featureType();
+      const raw = detectFeature(window.cv, imageData, pixel, type);
+
+      lastRaw = raw;
+      lastSeed = pixel;
+
+      const toDraw = showRaw.checked ? raw : applySmoothing(raw);
+      const colour = type === "bunker" ? "#ffcc44" : "#00ff66";
+      draw(toDraw, colour);
+
+      statusEl.textContent = `Detected ${raw.length} raw, ${toDraw.length} drawn`;
+    } catch (e) {
+      console.error(e);
+      statusEl.textContent = "Error: " + e.message;
+    }
+  }
+
+  overlay.addEventListener("click", (e) => {
+    const rect = overlay.getBoundingClientRect();
+    const x = Math.round((e.clientX - rect.left) * (img.naturalWidth / rect.width));
+    const y = Math.round((e.clientY - rect.top) * (img.naturalHeight / rect.height));
+    seedEl.textContent = `Seed: (${x}, ${y})`;
+    runDetection({ x, y });
+  });
+
+  resetBtn.addEventListener("click", () => {
+    svg.innerHTML = "";
+    seedEl.textContent = "Seed: —";
+    statusEl.textContent = "Ready — click the image";
+    lastRaw = null;
+    lastSeed = null;
+  });
+
+  showRaw.addEventListener("change", () => {
+    if (lastRaw && lastSeed) {
+      const toDraw = showRaw.checked ? lastRaw : applySmoothing(lastRaw);
+      const colour = featureType() === "bunker" ? "#ffcc44" : "#00ff66";
+      draw(toDraw, colour);
+    }
+  });
+
+  img.addEventListener("load", () => {
+    syncSvg();
+    statusEl.textContent = window.__opencvReady
+      ? "Ready — click the image"
+      : "Loading OpenCV…";
+
+    if (!window.__opencvReady) {
+      window.__opencvCallbacks.push(() => {
+        statusEl.textContent = "Ready — click the image";
+      });
+    }
+  });
+
+  window.addEventListener("resize", syncSvg);
+  if (img.complete) syncSvg();
+</script>
+
+</body>
+</html>

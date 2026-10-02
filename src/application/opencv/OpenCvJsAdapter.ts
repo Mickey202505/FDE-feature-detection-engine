@@ -1015,6 +1015,29 @@ export class OpenCvJsAdapter {
     }
   }
 
+  public detectGreenBoundaryRobust(
+    image: OpenCvImageData,
+    seed: PixelPoint,
+  ): PixelPoint[] {
+    const mask = this.createSeedGuidedRegionMask(
+      image,
+      seed,
+      GREEN_MASK_OPTIONS,
+    );
+
+    try {
+      const raw = this.extractBoundaryByRays(mask, seed, 360);
+
+      // Smooth the ray-cast polygon to remove the star-shaped stepping
+      // that rays produce at corners.
+      return this.smoothBoundary(raw, 4);
+    } finally {
+      if (typeof mask.delete === "function") {
+        mask.delete();
+      }
+    }
+  }
+
   public detectBunkerBoundary(
     image: OpenCvImageData,
     seed: PixelPoint,

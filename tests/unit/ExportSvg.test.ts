@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { exportSvg, IDENTITY_TRANSFORM } from "../../src/application/export/exportSvg";
+import { exportSvg } from "../../src/application/export/exportSvg";
 import type { PixelPoint } from "../../src/api/PixelPoint";
 
 const SQUARE: PixelPoint[] = [

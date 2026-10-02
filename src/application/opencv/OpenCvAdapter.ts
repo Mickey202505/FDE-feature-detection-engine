@@ -2,9 +2,9 @@ import type {
     OpenCvContour,
     OpenCvImageData,
     OpenCvMat
-} from "./OpenCvTypes";
+} from "./OpenCvTypes.js";
 
-import type { PixelPoint } from "./PixelPoint";
+import type { PixelPoint } from "./PixelPoint.js";
 
 export interface OpenCvAdapter {
     findContours(

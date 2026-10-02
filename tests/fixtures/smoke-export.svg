@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="-2 -2 104 104"
+     data-course="Test"
+     data-hole="1"
+     data-feature-type="bunker"
+     data-feature-number="1"
+     data-coordinate-space="world">
+  <polygon points="0,0 100,0 100,100 0,100"
+           fill="none"
+           stroke="black"
+           stroke-width="0.25"
+           stroke-linejoin="round" />
+</svg>

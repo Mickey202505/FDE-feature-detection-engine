@@ -1,3 +1,3 @@
-export type { DetectionRequest } from "./DetectionRequest";
-export type { DetectionResult } from "./DetectionResult";
-export { FeatureDetectionEngine } from "./FeatureDetectionEngine";
+export type { DetectionRequest } from "./DetectionRequest.js";
+export type { DetectionResult } from "./DetectionResult.js";
+export { FeatureDetectionEngine } from "./FeatureDetectionEngine.js";

@@ -1,7 +1,7 @@
-import { Feature } from "../../domain/Feature";
-import { FeatureType } from "../../domain/FeatureType";
-import { Polygon } from "../../domain/Polygon";
-import { WorldPoint } from "../../domain/WorldPoint";
+import { Feature } from "../../domain/Feature.js";
+import { FeatureType } from "../../domain/FeatureType.js";
+import { Polygon } from "../../domain/Polygon.js";
+import { WorldPoint } from "../../domain/WorldPoint.js";
 export class BunkerDetector {
     featureType = FeatureType.Bunker;
     openCv;

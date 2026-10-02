@@ -1,4 +1,4 @@
-export { FeatureType } from "./FeatureType";
-export { WorldPoint } from "./WorldPoint";
-export { Polygon } from "./Polygon";
-export { Feature } from "./Feature";
+export { FeatureType } from "./FeatureType.js";
+export { WorldPoint } from "./WorldPoint.js";
+export { Polygon } from "./Polygon.js";
+export { Feature } from "./Feature.js";

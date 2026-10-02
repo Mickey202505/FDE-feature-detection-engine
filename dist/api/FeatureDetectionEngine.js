@@ -1,4 +1,4 @@
-import { FeatureDetectionEngineImpl } from "../application/FeatureDetectionEngineImpl";
+import { FeatureDetectionEngineImpl } from "../application/FeatureDetectionEngineImpl.js";
 export class FeatureDetectionEngine {
     implementation;
     constructor(cv) {

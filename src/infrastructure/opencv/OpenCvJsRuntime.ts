@@ -1,4 +1,4 @@
-import type { OpenCvRuntime } from "../../application/opencv/OpenCvTypes";
+import type { OpenCvRuntime } from "../../application/opencv/OpenCvTypes.js";
 
 declare global {
     interface Window {

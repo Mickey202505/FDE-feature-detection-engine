@@ -1,7 +1,7 @@
-import type { PixelPoint } from "../../api/PixelPoint";
-import { simplifyPolygon } from "./simplify";
-import { removeSharpCorners } from "./removeSharpCorners";
-import { catmullRomToPolygon } from "./catmullRom";
+import type { PixelPoint } from "../../api/PixelPoint.js";
+import { simplifyPolygon } from "./simplify.js";
+import { removeSharpCorners } from "./removeSharpCorners.js";
+import { catmullRomToPolygon } from "./catmullRom.js";
 
 export interface SmoothOptions {
   enabled: boolean;

@@ -1,6 +1,6 @@
-import { OpenCvJsAdapter, BUNKER_MASK_OPTIONS, GREEN_MASK_OPTIONS, } from "../application/opencv/OpenCvJsAdapter";
-import { smoothPolygon, DEFAULT_SMOOTH_OPTIONS, } from "../application/geometry/smoothPolygon";
-import { maskToPolygon } from "../application/sam/maskToPolygon";
+import { OpenCvJsAdapter, BUNKER_MASK_OPTIONS, GREEN_MASK_OPTIONS, } from "../application/opencv/OpenCvJsAdapter.js";
+import { smoothPolygon, DEFAULT_SMOOTH_OPTIONS, } from "../application/geometry/smoothPolygon.js";
+import { maskToPolygon } from "../application/sam/maskToPolygon.js";
 /**
  * Colour-based detection (existing engine). Returns raw pixel-space points.
  */

@@ -1,7 +1,7 @@
-import type { OpenCvRuntime } from "../application/opencv/OpenCvTypes";
-import type { PixelPoint } from "../api/PixelPoint";
-import { type SmoothOptions } from "../application/geometry/smoothPolygon";
-import { type MaskLike } from "../application/sam/maskToPolygon";
+import type { OpenCvRuntime } from "../application/opencv/OpenCvTypes.js";
+import type { PixelPoint } from "../api/PixelPoint.js";
+import { type SmoothOptions } from "../application/geometry/smoothPolygon.js";
+import { type MaskLike } from "../application/sam/maskToPolygon.js";
 export type FeatureType = "green" | "bunker";
 export interface DetectFeatureImageData {
     width: number;

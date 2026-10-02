@@ -1,4 +1,4 @@
-import type { PixelPoint } from "../../api/PixelPoint";
+import type { PixelPoint } from "../../api/PixelPoint.js";
 
 export function simplifyPolygon(
   points: readonly PixelPoint[],

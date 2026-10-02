@@ -1,5 +1,5 @@
-import { FeatureType } from "./FeatureType";
-import { Polygon } from "./Polygon";
+import { FeatureType } from "./FeatureType.js";
+import { Polygon } from "./Polygon.js";
 
 export class Feature {
     public readonly type: FeatureType;

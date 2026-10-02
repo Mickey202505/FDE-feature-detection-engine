@@ -1,4 +1,4 @@
-import type { PixelPoint } from "../../api/PixelPoint";
+import type { PixelPoint } from "../../api/PixelPoint.js";
 export interface SmoothOptions {
     enabled: boolean;
     epsilon: number;

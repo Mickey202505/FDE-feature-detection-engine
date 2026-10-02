@@ -1,7 +1,7 @@
-import { GolfGreenDetector } from "./detectors/GolfGreenDetector";
-import { BunkerDetector } from "./detectors/BunkerDetector";
-import { DetectionPipeline } from "./pipeline/DetectionPipeline";
-import { OpenCvJsAdapter } from "./opencv/OpenCvJsAdapter";
+import { GolfGreenDetector } from "./detectors/GolfGreenDetector.js";
+import { BunkerDetector } from "./detectors/BunkerDetector.js";
+import { DetectionPipeline } from "./pipeline/DetectionPipeline.js";
+import { OpenCvJsAdapter } from "./opencv/OpenCvJsAdapter.js";
 export class FeatureDetectionEngineImpl {
     pipeline;
     constructor(cv) {

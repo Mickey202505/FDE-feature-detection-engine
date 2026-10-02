@@ -1,2 +1,2 @@
-export { FeatureDetectionEngine } from "./FeatureDetectionEngine";
+export { FeatureDetectionEngine } from "./FeatureDetectionEngine.js";
 //# sourceMappingURL=index.js.map

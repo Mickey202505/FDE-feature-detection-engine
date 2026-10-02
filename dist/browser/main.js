@@ -1,7 +1,7 @@
-import { FeatureDetectionEngine } from "../api";
-import { OpenCvImageLoader } from "../OpenCvImageLoader";
-import { openCvRuntime } from "../infrastructure/opencv/OpenCvJsRuntime";
-import { FeatureType } from "../domain/FeatureType";
+import { FeatureDetectionEngine } from "../api/index.js";
+import { OpenCvImageLoader } from "../OpenCvImageLoader.js";
+import { openCvRuntime } from "../infrastructure/opencv/OpenCvJsRuntime.js";
+import { FeatureType } from "../domain/FeatureType.js";
 const fileInputElement = document.getElementById("image-input");
 const canvasElement = document.getElementById("image-canvas");
 const testButtonElement = document.getElementById("test-button");

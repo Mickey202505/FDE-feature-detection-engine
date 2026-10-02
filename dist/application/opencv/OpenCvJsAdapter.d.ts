@@ -1,5 +1,5 @@
-import type { OpenCvContour, OpenCvImageData, OpenCvMat, OpenCvRuntime } from "./OpenCvTypes";
-import type { PixelPoint } from "../../api/PixelPoint";
+import type { OpenCvContour, OpenCvImageData, OpenCvMat, OpenCvRuntime } from "./OpenCvTypes.js";
+import type { PixelPoint } from "../../api/PixelPoint.js";
 interface FeatureMaskOptions {
     isFeaturePixel: (colour: {
         r: number;

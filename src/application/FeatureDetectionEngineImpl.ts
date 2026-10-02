@@ -1,10 +1,10 @@
-import type { DetectionRequest } from "../api/DetectionRequest";
-import type { DetectionResult } from "../api/DetectionResult";
-import { GolfGreenDetector } from "./detectors/GolfGreenDetector";
-import { BunkerDetector } from "./detectors/BunkerDetector";
-import { DetectionPipeline } from "./pipeline/DetectionPipeline";
-import { OpenCvJsAdapter } from "./opencv/OpenCvJsAdapter";
-import type { OpenCvRuntime } from "./opencv/OpenCvTypes";
+import type { DetectionRequest } from "../api/DetectionRequest.js";
+import type { DetectionResult } from "../api/DetectionResult.js";
+import { GolfGreenDetector } from "./detectors/GolfGreenDetector.js";
+import { BunkerDetector } from "./detectors/BunkerDetector.js";
+import { DetectionPipeline } from "./pipeline/DetectionPipeline.js";
+import { OpenCvJsAdapter } from "./opencv/OpenCvJsAdapter.js";
+import type { OpenCvRuntime } from "./opencv/OpenCvTypes.js";
 
 export class FeatureDetectionEngineImpl {
     private readonly pipeline: DetectionPipeline;

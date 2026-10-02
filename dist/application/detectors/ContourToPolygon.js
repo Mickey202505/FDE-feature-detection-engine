@@ -1,5 +1,5 @@
-import { Polygon } from "../../domain/Polygon";
-import { WorldPoint } from "../../domain/WorldPoint";
+import { Polygon } from "../../domain/Polygon.js";
+import { WorldPoint } from "../../domain/WorldPoint.js";
 export class ContourToPolygon {
     convert(contour, metresPerPixel) {
         if (metresPerPixel <= 0) {

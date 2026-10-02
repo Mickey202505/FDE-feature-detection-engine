@@ -1,7 +1,7 @@
-import type { DetectionRequest } from "./DetectionRequest";
-import type { DetectionResult } from "./DetectionResult";
-import { FeatureDetectionEngineImpl } from "../application/FeatureDetectionEngineImpl";
-import type { OpenCvRuntime } from "../application/opencv/OpenCvTypes";
+import type { DetectionRequest } from "./DetectionRequest.js";
+import type { DetectionResult } from "./DetectionResult.js";
+import { FeatureDetectionEngineImpl } from "../application/FeatureDetectionEngineImpl.js";
+import type { OpenCvRuntime } from "../application/opencv/OpenCvTypes.js";
 
 export class FeatureDetectionEngine {
     private readonly implementation: FeatureDetectionEngineImpl;

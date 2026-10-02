@@ -1,4 +1,4 @@
-import { Polygon } from "../domain/Polygon";
+import { Polygon } from "../domain/Polygon.js";
 export interface PixelPoint {
     x: number;
     y: number;

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { Feature } from "../../src/domain/Feature";
-import { FeatureType } from "../../src/domain/FeatureType";
-import { Polygon } from "../../src/domain/Polygon";
-import { WorldPoint } from "../../src/domain/WorldPoint";
+import { Feature } from "../../src/domain/Feature.js";
+import { FeatureType } from "../../src/domain/FeatureType.js";
+import { Polygon } from "../../src/domain/Polygon.js";
+import { WorldPoint } from "../../src/domain/WorldPoint.js";
 
 describe("Feature", () => {
     it("stores its type, polygon and confidence", () => {

@@ -1,4 +1,4 @@
-import { WorldPoint } from "./WorldPoint";
+import { WorldPoint } from "./WorldPoint.js";
 
 export class Polygon {
     private readonly _points: readonly WorldPoint[];

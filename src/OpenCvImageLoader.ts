@@ -2,7 +2,7 @@ import type {
     OpenCvImageData,
     OpenCvMat,
     OpenCvRuntime
-} from "./application/opencv/OpenCvTypes";
+} from "./application/opencv/OpenCvTypes.js";
 
 export class OpenCvImageLoader {
     private readonly cv: OpenCvRuntime;

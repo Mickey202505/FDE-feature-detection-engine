@@ -1,6 +1,6 @@
-import { simplifyPolygon } from "./simplify";
-import { removeSharpCorners } from "./removeSharpCorners";
-import { catmullRomToPolygon } from "./catmullRom";
+import { simplifyPolygon } from "./simplify.js";
+import { removeSharpCorners } from "./removeSharpCorners.js";
+import { catmullRomToPolygon } from "./catmullRom.js";
 export const DEFAULT_SMOOTH_OPTIONS = {
     enabled: true,
     epsilon: 2.0,

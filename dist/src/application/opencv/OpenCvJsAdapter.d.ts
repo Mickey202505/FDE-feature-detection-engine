@@ -1,0 +1,65 @@
+import type { OpenCvContour, OpenCvImageData, OpenCvMat, OpenCvRuntime } from "./OpenCvTypes";
+import type { PixelPoint } from "../../api/PixelPoint";
+interface FeatureMaskOptions {
+    isFeaturePixel: (colour: {
+        r: number;
+        g: number;
+        b: number;
+    }) => boolean;
+    localTolerance: number;
+    seedTolerance: number;
+    gradualTransitionSeedTolerance: number;
+    gradualTransitionLocalTolerance: number;
+    minimumCloseAcceptedNeighbours: number;
+    maximumAcceptedNeighbourColourSpread: number;
+}
+export declare const GREEN_MASK_OPTIONS: FeatureMaskOptions;
+export declare const BUNKER_MASK_OPTIONS: FeatureMaskOptions;
+export declare class OpenCvJsAdapter {
+    private readonly cv;
+    constructor(cv: OpenCvRuntime);
+    findContours(image: OpenCvImageData | OpenCvMat, seed?: PixelPoint): readonly OpenCvContour[];
+    private createBinaryImage;
+    createSeedGuidedRegionMaskForDiagnostics(image: OpenCvImageData, seed: PixelPoint, options?: FeatureMaskOptions): any;
+    private createSeedGuidedRegionMask;
+    private createSingleSeedGuidedRegionMask;
+    extractBoundaryByRaysForDiagnostics(mask: OpenCvMat, seed: PixelPoint): PixelPoint[];
+    private extractBoundaryByRays;
+    smoothBoundaryForDiagnostics(points: readonly PixelPoint[]): PixelPoint[];
+    private smoothBoundary;
+    segmentBoundaryForDiagnostics(points: readonly PixelPoint[]): PixelPoint[];
+    private segmentBoundary;
+    subsampleToCountForDiagnostics(points: readonly PixelPoint[], targetCount: number): PixelPoint[];
+    private subsampleToCount;
+    resampleBySpacingForDiagnostics(points: readonly PixelPoint[], targetSpacing: number): PixelPoint[];
+    private resampleBySpacing;
+    detectGreenBoundary(image: OpenCvImageData, seed: PixelPoint): PixelPoint[];
+    detectBunkerBoundary(image: OpenCvImageData, seed: PixelPoint): PixelPoint[];
+    extractBoundaryFromMask(mask: OpenCvMat, targetSpacing?: number): PixelPoint[];
+    private createEmptyMask;
+    private createAutomaticGreenMask;
+    private readPixel;
+    private writeMaskPixel;
+    private clearMask;
+    private fillInternalHoles;
+    private countCloseAcceptedNeighbours;
+    private hasSmoothColourDriftSupport;
+    private getAcceptedNeighbourColourSpread;
+    private getLocalAcceptedColour;
+    private calculateRgbDistance;
+    private isGreenPixel;
+    private readContourPoints;
+    private calculatePerimeter;
+    private cleanSeedAwarePolygon;
+    private isSuspiciousVertex;
+    private isValidRemoval;
+    private hasDuplicatePoints;
+    private isPointInsidePolygon;
+    private calculatePolygonArea;
+    private getPointBounds;
+    private logRawContourDiagnostic;
+    private logApproximatedContourDiagnostic;
+    private normalizeImage;
+    private validateImage;
+}
+export {};

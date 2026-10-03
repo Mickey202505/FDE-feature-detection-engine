@@ -1,7 +1,7 @@
 // src/application/opencv/OpenCvJsAdapter.ts
 var GREEN_MASK_OPTIONS = {
   isFeaturePixel: (colour) => colour.g >= 50 && colour.g - Math.max(colour.r, colour.b) >= 10,
-  localTolerance: 16,
+  localTolerance: 32,
   seedTolerance: 40,
   gradualTransitionSeedTolerance: 25,
   gradualTransitionLocalTolerance: 12,

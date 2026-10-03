@@ -82,10 +82,10 @@
 <script src="./opencv.js"></script>
 
 <script type="module">
-  import {
-    detectFeature,
-    applySmoothing,
-  } from "./detector.bundle.js";
+import {
+  detectFeature,
+  applySmoothing,
+} from "./detector.bundle.js?v=1";
 
   const img = document.getElementById("img");
   const svg = document.getElementById("svg");
@@ -204,7 +204,11 @@
     }
   });
 
-  img.addEventListener("load", () => {
+  window.addEventListener("resize", syncSvg);
+
+  // In case the image loaded before the module script ran, run the
+  // onload logic manually.
+  function initialiseViewer() {
     syncSvg();
     statusEl.textContent = window.__opencvReady
       ? "Ready — click the image"
@@ -215,10 +219,13 @@
         statusEl.textContent = "Ready — click the image";
       });
     }
-  });
+  }
 
-  window.addEventListener("resize", syncSvg);
-  if (img.complete) syncSvg();
+  if (img.complete) {
+    initialiseViewer();
+  } else {
+    img.addEventListener("load", initialiseViewer, { once: true });
+  }
 </script>
 
 </body>

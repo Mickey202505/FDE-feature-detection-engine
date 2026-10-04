@@ -34,6 +34,7 @@ export declare class OpenCvJsAdapter {
     resampleBySpacingForDiagnostics(points: readonly PixelPoint[], targetSpacing: number): PixelPoint[];
     private resampleBySpacing;
     detectGreenBoundary(image: OpenCvImageData, seed: PixelPoint): PixelPoint[];
+    detectGreenBoundaryRobust(image: OpenCvImageData, seed: PixelPoint): PixelPoint[];
     detectBunkerBoundary(image: OpenCvImageData, seed: PixelPoint): PixelPoint[];
     extractBoundaryFromMask(mask: OpenCvMat, targetSpacing?: number): PixelPoint[];
     private createEmptyMask;

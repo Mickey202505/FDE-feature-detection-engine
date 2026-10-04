@@ -13,11 +13,17 @@ export interface DetectFeatureImageData {
  */
 export declare function detectFeatureColour(cv: OpenCvRuntime, imageData: DetectFeatureImageData, seed: PixelPoint, featureType: FeatureType): PixelPoint[];
 /**
- * SAM-based detection. Takes the raw mask SAM returns and produces pixel-space points.
- * No 14px resampling yet — smoothing handles reduction.
+ * SAM-based detection. Takes the raw mask SAM returns and produces
+ * pixel-space points.
  */
 export declare function detectFeatureFromMask(mask: MaskLike): PixelPoint[];
 /**
  * Post-process raw points into a smooth polygon.
  */
 export declare function applySmoothing(points: readonly PixelPoint[], options?: Partial<SmoothOptions>): PixelPoint[];
+/**
+ * Single entry point for the local viewer and any other browser consumer.
+ * Currently delegates to the colour detector. If we ever add SAM2 in the
+ * browser, this is where it would branch.
+ */
+export declare function detectFeature(cv: OpenCvRuntime, imageData: DetectFeatureImageData, seed: PixelPoint, featureType: FeatureType): PixelPoint[];

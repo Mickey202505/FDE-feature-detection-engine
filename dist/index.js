@@ -9,6 +9,6 @@ export { removeSharpCorners } from "./application/geometry/removeSharpCorners.js
 export { catmullRomToPolygon } from "./application/geometry/catmullRom.js";
 // SVG export
 export { exportSvg, IDENTITY_TRANSFORM, } from "./application/export/exportSvg.js";
-// Legacy API — the implementation class, re-exported under its original name.
+// Legacy API - the implementation class, re-exported under its original name.
 export { FeatureDetectionEngineImpl as FeatureDetectionEngine } from "./application/FeatureDetectionEngineImpl.js";
 //# sourceMappingURL=index.js.map

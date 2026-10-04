@@ -557,6 +557,20 @@ export class OpenCvJsAdapter {
             }
         }
     }
+    detectGreenBoundaryRobust(image, seed) {
+        const mask = this.createSeedGuidedRegionMask(image, seed, GREEN_MASK_OPTIONS);
+        try {
+            const raw = this.extractBoundaryByRays(mask, seed, 360);
+            // Smooth the ray-cast polygon to remove the star-shaped stepping
+            // that rays produce at corners.
+            return this.smoothBoundary(raw, 4);
+        }
+        finally {
+            if (typeof mask.delete === "function") {
+                mask.delete();
+            }
+        }
+    }
     detectBunkerBoundary(image, seed) {
         const mask = this.createSeedGuidedRegionMask(image, seed, BUNKER_MASK_OPTIONS);
         try {

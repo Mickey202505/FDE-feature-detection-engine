@@ -27,7 +27,9 @@ export interface DetectFeatureImageData {
 }
 
 /**
- * Colour-based detection (existing engine). Returns raw pixel-space points.
+ * Colour-based detection. Extracts a fine-resolution contour from the mask
+ * and then resamples to a fixed number of points so the editing UI always
+ * has a consistent handle count regardless of feature size.
  */
 export function detectFeatureColour(
   cv: OpenCvRuntime,
@@ -46,7 +48,9 @@ export function detectFeatureColour(
   );
 
   try {
-    return adapter.extractBoundaryFromMask(rawMask, 14);
+    const raw = adapter.extractBoundaryFromMask(rawMask, 2);
+    const targetCount = featureType === "bunker" ? 24 : 20;
+    return adapter.resampleByCount(raw, targetCount);
   } finally {
     if (typeof rawMask.delete === "function") rawMask.delete();
   }
@@ -71,9 +75,7 @@ export function applySmoothing(
 }
 
 /**
- * Single entry point for the local viewer and any other browser consumer.
- * Currently delegates to the colour detector. If we ever add SAM2 in the
- * browser, this is where it would branch.
+ * Single entry point for the browser consumers.
  */
 export function detectFeature(
   cv: OpenCvRuntime,

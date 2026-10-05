@@ -653,6 +653,47 @@ var OpenCvJsAdapter = class {
     }
     return result;
   }
+  resampleByCount(points, targetCount) {
+    const n = points.length;
+    if (n < 3 || targetCount < 3) {
+      return [...points];
+    }
+    const lengths = [];
+    let total = 0;
+    for (let i = 0; i < n; i += 1) {
+      const a = points[i];
+      const b = points[(i + 1) % n];
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      lengths.push(len);
+      total += len;
+    }
+    if (total === 0) {
+      return [...points];
+    }
+    const spacing = total / targetCount;
+    const result = [points[0]];
+    let segIdx = 0;
+    let segStart = 0;
+    for (let k = 1; k < targetCount; k += 1) {
+      const targetDist = k * spacing;
+      while (segIdx < n && segStart + lengths[segIdx] < targetDist) {
+        segStart += lengths[segIdx];
+        segIdx += 1;
+      }
+      if (segIdx >= n) {
+        break;
+      }
+      const a = points[segIdx];
+      const b = points[(segIdx + 1) % n];
+      const segLen = lengths[segIdx] || 1;
+      const t = (targetDist - segStart) / segLen;
+      result.push({
+        x: a.x + (b.x - a.x) * t,
+        y: a.y + (b.y - a.y) * t
+      });
+    }
+    return result;
+  }
   detectGreenBoundary(image, seed) {
     const mask = this.createSeedGuidedRegionMask(image, seed);
     try {
@@ -723,7 +764,7 @@ var OpenCvJsAdapter = class {
       const largestContour = contours.get(largestContourIndex);
       const points = this.readContourPoints(largestContour);
       largestContour.delete();
-      return this.resampleBySpacing(points, targetSpacing, 10, 2e3);
+      return this.resampleBySpacing(points, 2, 10, 1e4);
     } finally {
       contours.delete();
       hierarchy.delete();
@@ -1503,7 +1544,9 @@ function detectFeatureColour(cv, imageData, seed, featureType) {
     options
   );
   try {
-    return adapter.extractBoundaryFromMask(rawMask, 14);
+    const raw = adapter.extractBoundaryFromMask(rawMask, 2);
+    const targetCount = featureType === "bunker" ? 24 : 20;
+    return adapter.resampleByCount(raw, targetCount);
   } finally {
     if (typeof rawMask.delete === "function") rawMask.delete();
   }

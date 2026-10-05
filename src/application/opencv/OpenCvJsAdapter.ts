@@ -998,6 +998,66 @@ export class OpenCvJsAdapter {
     return result;
   }
 
+    public resampleByCount(
+    points: readonly PixelPoint[],
+    targetCount: number,
+  ): PixelPoint[] {
+    const n = points.length;
+
+    if (n < 3 || targetCount < 3) {
+      return [...points];
+    }
+
+    const lengths: number[] = [];
+    let total = 0;
+
+    for (let i = 0; i < n; i += 1) {
+      const a = points[i];
+      const b = points[(i + 1) % n];
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      lengths.push(len);
+      total += len;
+    }
+
+    if (total === 0) {
+      return [...points];
+    }
+
+    const spacing = total / targetCount;
+
+    const result: PixelPoint[] = [points[0]];
+    let segIdx = 0;
+    let segStart = 0;
+
+    for (let k = 1; k < targetCount; k += 1) {
+      const targetDist = k * spacing;
+
+      while (
+        segIdx < n &&
+        segStart + lengths[segIdx] < targetDist
+      ) {
+        segStart += lengths[segIdx];
+        segIdx += 1;
+      }
+
+      if (segIdx >= n) {
+        break;
+      }
+
+      const a = points[segIdx];
+      const b = points[(segIdx + 1) % n];
+      const segLen = lengths[segIdx] || 1;
+      const t = (targetDist - segStart) / segLen;
+
+      result.push({
+        x: a.x + (b.x - a.x) * t,
+        y: a.y + (b.y - a.y) * t,
+      });
+    }
+
+    return result;
+  }
+
   public detectGreenBoundary(
     image: OpenCvImageData,
     seed: PixelPoint,
@@ -1101,10 +1161,10 @@ export class OpenCvJsAdapter {
 
       largestContour.delete();
 
-      // Resample directly from the dense pixel contour.
-      // No approxPolyDP, no smoothing — every curve is preserved.
-      return this.resampleBySpacing(points, targetSpacing, 10, 2000);
-
+      // Resample to a fine spacing first (2px) so we keep every detail.
+      // Callers can then call resampleByCount() to reduce to a fixed count.
+      return this.resampleBySpacing(points, 2, 10, 10000);
+      
     } finally {
       contours.delete();
       hierarchy.delete();
